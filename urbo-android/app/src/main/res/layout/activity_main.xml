@@ -1,0 +1,45 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+   tools:context=".MainActivity">
+
+
+    <com.fringefy.urbo.CameraView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/camera_view"/>
+
+    <TextView
+        android:id="@+id/text_states"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_margin="10dp"
+        android:textColor="@android:color/white"
+        android:text="1. Searching..."/>
+
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Menu"
+        android:id="@+id/btn_menu"
+        android:layout_gravity="left|bottom"/>
+
+    <com.fringefy.urbo.app.views.ViewFinder
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/aim"
+        android:layout_gravity="center"/>
+
+    <FrameLayout
+        android:id="@+id/small_container"
+        android:layout_width="190dp"
+        android:layout_height="190dp"
+        android:background="@android:color/white"
+        android:alpha="0.3"
+        android:layout_gravity="right|top">
+    </FrameLayout>
+
+
+</FrameLayout>

@@ -1,0 +1,6 @@
+<resources>
+    <declare-styleable name="CameraView">
+        <attr name="camera" format="integer" />
+        <attr name="startImmediately" format="integer" />
+    </declare-styleable>
+</resources>

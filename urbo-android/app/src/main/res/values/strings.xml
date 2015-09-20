@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Urbo</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="unfreeze">unFreeze</string>
+    <string name="freeze">Freeze</string>
+</resources>
