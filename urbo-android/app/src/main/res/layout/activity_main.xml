@@ -5,41 +5,88 @@
 
 
     <com.fringefy.urbo.CameraView
+        android:id="@+id/camera_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/camera_view"/>
-
-    <TextView
-        android:id="@+id/text_states"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top"
-        android:layout_margin="10dp"
-        android:textColor="@android:color/white"
-        android:text="1. Searching..."/>
-
+        android:layout_height="match_parent"/>
 
     <Button
+        android:id="@+id/btn_menu"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Menu"
-        android:id="@+id/btn_menu"
+        android:onClick="onClick"
         android:layout_gravity="left|bottom"/>
 
-    <com.fringefy.urbo.app.views.ViewFinder
+    <Button
+        android:id="@+id/btn_search"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="Search"
+        android:onClick="onClick"
+        android:layout_gravity="center_horizontal|bottom"/>
+
+    <Button
+        android:id="@+id/btn_tag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TAG"
+        android:onClick="onClick"
+        android:layout_gravity="right|bottom"/>
+
+    <com.fringefy.urbo.app.views.ViewFinder
         android:id="@+id/aim"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"/>
 
-    <FrameLayout
-        android:id="@+id/small_container"
+    <com.fringefy.urbo.app.widget.DebugView
+        android:id="@+id/debug_view"
         android:layout_width="190dp"
-        android:layout_height="190dp"
+        android:layout_height="wrap_content"
         android:background="@android:color/white"
-        android:alpha="0.3"
-        android:layout_gravity="right|top">
-    </FrameLayout>
+        android:alpha="0.7"
+        android:padding="5dp"
+        android:layout_gravity="right|top"/>
 
+    <LinearLayout
+        android:id="@+id/tagging_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_margin="100dp"
+        android:layout_gravity="center">
+        <EditText
+            android:id="@+id/poi_name"
+            android:hint="POI Name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <ImageView
+            android:id="@+id/tag_image"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+        <Button
+            android:id="@+id/btn_cancel"
+            android:onClick="onClick"
+            android:text="cance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <Button
+            android:id="@+id/btn_confirm"
+            android:onClick="onClick"
+            android:text="TAG IT!"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+
+
+    </FrameLayout>
 
 </FrameLayout>

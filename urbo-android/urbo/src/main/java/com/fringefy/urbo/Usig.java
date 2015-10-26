@@ -10,10 +10,10 @@ class Usig {
 // Inner Types
 
     static class Una {
-        public double azimuth;
-        public String unaData;
+        double azimuth;
+        String unaData;
 
-        private Una(double camAzimuth, String sUna) {
+        public Una(double camAzimuth, String sUna) {
             azimuth = camAzimuth;
             unaData = sUna;
         }

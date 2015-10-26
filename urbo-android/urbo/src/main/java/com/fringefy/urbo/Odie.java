@@ -30,7 +30,7 @@ interface Odie {
 	PutResponse sync(@Body PutRequest putReq);
 
 	class PutRequest {
-		public List<Poi> pois;
+		public Poi[] pois;
 		public RecoEvent[] recognitionEvents;
 	}
 

@@ -2,6 +2,7 @@ package com.fringefy.urbo;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -17,68 +18,74 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.FrameLayout;
 
+import java.util.Arrays;
 import java.util.List;
 
 
 @SuppressWarnings("deprecation")
 public class CameraView extends SurfaceView {
 
-    private static final String TAG = "CameraView";
-    private static final double ASPECT_TOLERANCE = 0.1;	// when choosing preview size
+	private static final String TAG = "CameraView";
+	private static final double ASPECT_TOLERANCE = 0.1;	// when choosing preview size
+	public static final int DEFAULT_ROTATION_VECTOR_LENGTH = 9;
+	public static final int SAMSUNG_ROTATION_VECTOR_LENGTH = 3; // see https://groups.google.com/d/msg/android-developers/U3N9eL5BcJk/X3RbVdy2rZMJ
+	private int nTrimRotationVector = DEFAULT_ROTATION_VECTOR_LENGTH;
 
 
 // Inner Classes
 
-    public interface Listener {
-        void onStateChanged(int iStateId, Poi poi, long lSnapshotId);
-        void onSnapshot(RecoEvent recoEvent);
-    }
-
 
 // Members
 
+	private Urbo urbo;
 	private HandlerThread htCam;
 	private Handler hCam;
 	private boolean bCamInitialized;
 	private Camera camera;
 
-    private boolean bStartImmediately;
-    private int iCamId;
+	private boolean bStartImmediately;
+	private int iCamId;
 	private int iFrameW, iFrameH;
 	private boolean bLive;
 
 	private Sensor sensorRotationVec;
+	private Sensor sensorAccelerometer;
+	private float[] mGravity;
+	private Sensor sensorMagnetic;
+	private float[] mGeomagnetic;
+
 	private SensorManager sensorManager;
 
-    private Listener listener;
-    private EventHandlers eventHandlers;
+	private EventHandlers eventHandlers;
 
 
 // Construction
 
 	public CameraView(Context context) {
 		super(context);
-		init(context, null, 0);
+		init(null, 0);
 	}
 	
 	public CameraView(Context context, AttributeSet attrs) {
 		super(context, attrs);
-		init(context, attrs, 0);
+		init(attrs, 0);
 	}
 	
 	public CameraView(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
-		init(context, attrs, defStyle);
+		init(attrs, defStyle);
 	}
 	
-	private void init(Context context, AttributeSet attrs, int defStyle) {
-		if (Urbo.urbo == null) {
-			throw new IllegalStateException("You must load Urbo before creating the camera view");
+	private void init(AttributeSet attrs, int defStyle) {
+		if (isInEditMode()) {
+			return;
 		}
 
-        eventHandlers = new EventHandlers();
+		urbo = Urbo.getInstance(getContext());
 
-        // initialize camera thread
+		eventHandlers = new EventHandlers();
+
+		// initialize camera thread
 		htCam = new HandlerThread("CameraThread");
 		htCam.start();
 		hCam = new Handler(htCam.getLooper());
@@ -88,12 +95,16 @@ public class CameraView extends SurfaceView {
 			attrs, R.styleable.CameraView, defStyle, 0);
 
 		bStartImmediately = a.getBoolean(R.styleable.CameraView_startImmediately, true);
-        iCamId = a.getInt(R.styleable.CameraView_camera, 0);
+		iCamId = a.getInt(R.styleable.CameraView_camera, 0);
 
-        a.recycle();
+		a.recycle();
 
-		sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+		sensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
 		sensorRotationVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+		if (sensorRotationVec == null) {
+			sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+			sensorMagnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		}
 
 		getHolder().addCallback(eventHandlers);
 	}
@@ -102,8 +113,8 @@ public class CameraView extends SurfaceView {
 // Public Methods
 
 	public boolean freeze() {
-        if (!bLive) {
-			Log.d(TAG, "bLive = " + String.valueOf(bLive));
+		if (!bLive) {
+			Log.d(TAG, "bLive = false");
 			return false;
 		}
 
@@ -114,130 +125,126 @@ public class CameraView extends SurfaceView {
 		Log.d(TAG, "Freeze()");
 		sensorManager.unregisterListener(eventHandlers);
 
-        bLive = false;
-        return true;
-	}
-
-	public boolean unFreeze() {
-        if (bLive){
-			Log.d(TAG,"bLive = " + String.valueOf(bLive));
-			return false;
-		}
-
-//		if (camera == null || !bCamInitialized) {
-//			throw new IllegalStateException("Camera has not finished initializing");
-//		}
-
-        camera.setPreviewCallbackWithBuffer(eventHandlers);
-		camera.startPreview();
-
-		sensorManager.registerListener(eventHandlers, sensorRotationVec,
-                SensorManager.SENSOR_DELAY_GAME);
-
-        bLive = true;
+		bLive = false;
 		return true;
 	}
 
-    public void setListener(@Nullable Listener listener) {
-        this.listener = listener;
-    }
+	public boolean unFreeze() {
+		if (bLive) {
+			Log.d(TAG, "bLive = true");
+			return false;
+		}
 
+		camera.setPreviewCallbackWithBuffer(eventHandlers);
+		camera.startPreview();
+
+		if (sensorRotationVec != null) {
+			sensorManager.registerListener(eventHandlers, sensorRotationVec,
+					SensorManager.SENSOR_DELAY_GAME);
+		}
+		else {
+			sensorManager.registerListener(eventHandlers, sensorAccelerometer,
+					SensorManager.SENSOR_DELAY_GAME);
+			sensorManager.registerListener(eventHandlers, sensorMagnetic,
+					SensorManager.SENSOR_DELAY_GAME);
+		}
+
+		bLive = true;
+		return true;
+	}
+
+	public boolean isLive() {
+		return bLive || (!bCamInitialized && bStartImmediately);
+	}
 
 // Event Handlers
 
-    private class EventHandlers implements SurfaceHolder.Callback,
-            Camera.PreviewCallback, SensorEventListener, Pexeso.LiveFeedListener {
-        @Override
-        public void surfaceCreated(SurfaceHolder holder) {
-            // init camera
-            hCam.post(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        camera = Camera.open(iCamId);
-                    } catch (Exception e) {
-                        Urbo.urbo.onError(TAG, "Failed to open camera " + iCamId, e);
-                    }
-                }
-            });
-        }
+	private class EventHandlers implements SurfaceHolder.Callback,
+			SensorEventListener, Camera.PreviewCallback {
+		@Override
+		public void surfaceCreated(SurfaceHolder holder) {
+			// init camera
+			hCam.post(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						camera = Camera.open(iCamId);
+					}
+					catch (Exception e) {
+						urbo.onError(TAG, "Failed to open camera " + iCamId, e);
+					}
+				}
+			});
+		}
 
-        // finalize the camera init now that we know preview size
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, final int w, final int h) {
+		// finalize the camera init now that we know preview size
+		@Override
+		public void surfaceChanged(SurfaceHolder holder, int format, final int w, final int h) {
 
-            hCam.post(new Runnable() {
-                @Override
-                public void run() {
-//                    if (camera != null || bCamInitialized){
-//						Log.d(TAG,"camera != null or bCamInitialized = true");
-//						return;
-//					}
+			hCam.post(new Runnable() {
+				@Override
+				public void run() {
+					if (bCamInitialized) {
+						Log.d(TAG, "bCamInitialized = true");
+						return;
+					}
 
-                    cameraSetup(w, h);
-                    bCamInitialized = true;
+					cameraSetup(w, h);
+					bCamInitialized = true;
 
-                    Pexeso.initLiveFeed(w, h, eventHandlers);
+					Pexeso.initLiveFeed(iFrameW, iFrameH, camera);
 
-                    if (bStartImmediately) {
-                        unFreeze();
-                    }
-                }
-            });
-        }
+					if (bStartImmediately) {
+						unFreeze();
+					}
+				}
+			});
+		}
 
-        @Override
-        public void surfaceDestroyed(SurfaceHolder holder) {
-            freeze();
+		@Override
+		public void surfaceDestroyed(SurfaceHolder holder) {
+			freeze();
 
-            if (camera != null) {
-                camera.release();
-                camera = null;
-                bCamInitialized = false;
-            }
-        }
+			if (camera != null) {
+				camera.release();
+				camera = null;
+				bCamInitialized = false;
+			}
+		}
 
-        @Override
-        public void onPreviewFrame(final byte[] baImg, final Camera camera) {
-            Pexeso.pushFrame(baImg);
-        }
+		@Override
+		public void onAccuracyChanged(Sensor sensor, int accuracy) {
+		}
 
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        }
+		@Override
+		public void onSensorChanged(SensorEvent event) {
+			if (event.sensor.equals(sensorRotationVec)) {
+				onOrientationChanged(computeOrientation(event.values));
+				return;
+			}
+			else if (event.sensor.equals(sensorMagnetic)) {
+				mGeomagnetic = event.values;
+			}
+			else if (event.sensor.equals(sensorAccelerometer)) {
+				mGravity = event.values;
+				if (sensorMagnetic == null) {
+					mGeomagnetic = new float[]{-39.0625f, -19.0625f, 27.25f};
+				}
+			}
+			// TODO: may be necessary to improve buffering of raw sensor data
+			if (mGravity != null && mGeomagnetic != null) {
+				float R[] = new float[DEFAULT_ROTATION_VECTOR_LENGTH];
+				if (SensorManager.getRotationMatrix(R, null, mGravity, mGeomagnetic)) {
+					onOrientationChanged(computeOrientation(R));
+				}
+			}
+		}
 
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-        /* TODO: [AC] Normalize (and smooth) heading and pitch
-            heading - degrees [0, 359.99] with 0 north,
-            pitch - degrees [-180, 179.99] with 0 perpendicular upright,
-                90 flat up, -180 ~= 179 = perpendicular upside down
-         */
-            Pexeso.pushPitch(event.values[1]);
-            Pexeso.pushHeading(event.values[0]);
-        }
-
-        @Override
-        public void onNewBuffer(byte[] baBuf) {
-            camera.addCallbackBuffer(baBuf);
-        }
-
-        @Override
-        public boolean onStateChanged(int iStateId, Poi poi, long lSnapshotId) {
-            if (listener != null) {
-                listener.onStateChanged(iStateId, poi, lSnapshotId);
-            }
-
-            return true;
-        }
-
-        @Override
-        public void onSnapshot(RecoEvent recoEvent) {
-            if (listener != null) {
-                listener.onSnapshot(recoEvent);
-            }
-        }
-    }
+		@Override
+		public void onPreviewFrame(byte[] data, Camera camera) {
+			Pexeso.pushFrame(data);
+		}
+	}
 
 
 // Private Methods
@@ -265,7 +272,8 @@ public class CameraView extends SurfaceView {
 			iFrameW = optimalSize.width;
 			iFrameH = optimalSize.height;
 
-			// TODO: [AC] is this really necessary?
+			// realign the CameraView to preserve the true aspect ration on screen
+			// expect the parent of our CameraView to be a FrameLayout
 			final FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
 			double cameraAspectRatio = ((double) optimalSize.width) / optimalSize.height;
 
@@ -282,8 +290,8 @@ public class CameraView extends SurfaceView {
 			post(new Runnable() {
 				@Override
 				public void run() {
-                    setLayoutParams(lp);
-                    requestLayout();
+					setLayoutParams(lp);
+					requestLayout();
 				}
 			});
 
@@ -297,12 +305,12 @@ public class CameraView extends SurfaceView {
 			camera.setPreviewDisplay(getHolder());
 
 		} catch (Exception e) {
-			Urbo.urbo.onError(TAG, "Failed to finalize camera setup", e);
+			urbo.onError(TAG, "Failed to finalize camera setup", e);
 		}
 	}
 
 	private Camera.Size getOptimalSize(List<Camera.Size> lstSizes,
-	                                   int iTargetW, int iTargetH) {
+									   int iTargetW, int iTargetH) {
 
 		double dTargetRatio = (double)iTargetW / iTargetH;
 		Camera.Size optimalSize = null;
@@ -330,4 +338,72 @@ public class CameraView extends SurfaceView {
 
 		return optimalSize;
 	}
+
+	private float[] computeOrientation(float[] afRotationVectorOrMatrix) {
+
+		if (afRotationVectorOrMatrix == null) {
+			return null;
+		}
+
+		// compute rotation matrix
+		float[] R;
+		if (afRotationVectorOrMatrix.length >= DEFAULT_ROTATION_VECTOR_LENGTH) {
+			R = afRotationVectorOrMatrix; // this is actually rotation matrix
+		}
+		else {
+			R = new float[DEFAULT_ROTATION_VECTOR_LENGTH];
+			if (afRotationVectorOrMatrix.length > nTrimRotationVector) {
+				afRotationVectorOrMatrix =
+						Arrays.copyOf(afRotationVectorOrMatrix, nTrimRotationVector);
+			}
+			try {
+				SensorManager.getRotationMatrixFromVector(R, afRotationVectorOrMatrix);
+			}
+			catch (java.lang.IllegalArgumentException ex) {
+				Log.e(TAG, "exception in getRotationMatrixFromVector of length "
+						+ afRotationVectorOrMatrix.length, ex);
+
+				// if this is Samsung Note 3 or similar, work around it
+				// see https://groups.google.com/d/msg/android-developers/U3N9eL5BcJk/X3RbVdy2rZMJ
+				if (afRotationVectorOrMatrix.length > SAMSUNG_ROTATION_VECTOR_LENGTH) {
+					nTrimRotationVector = SAMSUNG_ROTATION_VECTOR_LENGTH;
+					return computeOrientation(Arrays.copyOf(afRotationVectorOrMatrix, SAMSUNG_ROTATION_VECTOR_LENGTH));
+				}
+				else {
+					return new float[] { 0, -(float)Math.PI/2, 0 };
+				}
+			}
+		}
+
+		float[] afOrientation = SensorManager.getOrientation(R, new float[3]);
+
+		// compute azimuth (REF: http://goo.gl/JWhks6)
+		afOrientation[0] = (float)Math.atan2(R[1] - R[3], R[0] + R[4]);
+		return afOrientation;
+	}
+
+	private void onOrientationChanged(float[] afOrientation) {
+
+		// heading - degrees [0, 359.99] with 0 north,
+		// pitch - degrees [-180, 179.99] with 0 perpendicular upright,
+		//         90 flat up, 90 flat down, -180 ~= 179 = perpendicular upside down
+
+		// afOrientation[0] is from -PI to PI with 0 to North
+		double heading = afOrientation[0] / Math.PI * 180;
+		if (heading < 0) {
+			heading += 360;
+		}
+
+		// afOrinetation[1] is from 0 (flat) to PI (upright)
+		// afOrinetation[2] is ~0 when screen looks up, ~PI when screen looks down
+		if (Math.abs(afOrientation[2]) < Math.PI/2) {
+			Pexeso.pushPitch(90 + afOrientation[1] / (float) Math.PI * 180);
+		}
+		else {
+			Pexeso.pushPitch(-(90 + afOrientation[1] / (float) Math.PI * 180));
+		}
+		Pexeso.pushHeading((float)heading);
+	}
+
+
 }

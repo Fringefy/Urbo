@@ -16,44 +16,17 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
     sourceSets {
         main {
-            jni.srcDirs = ['../../pexeso', '../pexeso-android']
-            jniLibs.srcDirs = ['../libs']
+            jniLibs.srcDirs = ['libs']
         }
-    }
-
-    task buildNative(type: Exec, description: 'Compile JNI source via NDK') {
-        def ndkDir = android.ndkDirectory
-        commandLine "$ndkDir/ndk-build", "NDK_APPLICATION_MK=../pexeso-android/Application.mk", "NDK_PROJECT_PATH=.."
-    }
-    buildNative.onlyIf {
-        file('../pexeso-android/local.mk').exists()
-    }
-    task cleanNative(type: Exec, description: 'Clean JNI object files') {
-        def ndkDir = android.ndkDirectory
-        commandLine "$ndkDir/ndk-build", "clean", "NDK_APPLICATION_MK=../pexeso-android/Application.mk", "NDK_PROJECT_PATH=.."
-    }
-    cleanNative.onlyIf {
-        file('../pexeso-android/local.mk').exists()
-    }
-
-    clean.dependsOn 'cleanNative'
-
-    tasks.withType(JavaCompile) {
-        compileTask -> compileTask.dependsOn buildNative
-    }
-    tasks.all {
-        task -> if (task.name.contains('compileDebugNdk') || task.name.contains('compileReleaseNdk')) task.enabled = false
     }
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-//    compile 'com.android.support:appcompat-v7:22.2.1'
-    compile 'com.google.android.gms:play-services-location:7.8.0'
+    compile 'com.google.android.gms:play-services-location:8.1.0'
     compile 'com.squareup.retrofit:retrofit:1.9.0'
-    compile 'io.tesla.okhttp:okhttp:0.9.1'
-    compile 'com.amazonaws:aws-android-sdk-s3:2.2.4'
+    compile 'com.squareup.okhttp:okhttp:2.5.0'
+    compile 'com.squareup.okio:okio:1.4.0'
 }

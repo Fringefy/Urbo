@@ -2,46 +2,48 @@ package com.fringefy.urbo.app.views;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
 import android.view.View;
 
-/**
- * Created by Orr's laptop on 08/09/2015.
- */
+
 public class ViewFinder extends View {
 
+    //Constants
+    public static final int iCOLOR = 0x4cffffff;
+    private static final int iAIM_THICKNESS = 5;
+    private static final int iAIM_SIZE = 40;
 
+    //members
     private Paint aimPaint;
     private Path aimPath;
 
-    private static final int AIM_THICKNESS = 5;
-    private static final int AIM_SIZE = 40;
-
+    //Construction
     public ViewFinder(Context context, AttributeSet attrs) {
         super(context, attrs);
 
+        // TODO: move this to XML (as values..)
         aimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        aimPaint.setColor(0x4cffffff);
-        aimPaint.setStrokeWidth(AIM_THICKNESS);
+        aimPaint.setColor(iCOLOR);
+        aimPaint.setStrokeWidth(iAIM_THICKNESS);
         aimPaint.setStyle(Paint.Style.STROKE);
 
         aimPath = new Path();
     }
 
+    //Private methods
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
 
         super.onSizeChanged(w, h, oldw, oldh);
         aimPath = new Path();
 
-        aimPath.moveTo(w/2- AIM_SIZE, h/2);
-        aimPath.lineTo(w/2 + AIM_SIZE, h/2);
+        aimPath.moveTo(w/2- iAIM_SIZE, h/2);
+        aimPath.lineTo(w/2 + iAIM_SIZE, h/2);
 
-        aimPath.moveTo(w/2, h/2- AIM_SIZE);
-        aimPath.lineTo(w/2, h/2+ AIM_SIZE);
+        aimPath.moveTo(w/2, h/2- iAIM_SIZE);
+        aimPath.lineTo(w/2, h/2+ iAIM_SIZE);
     }
 
     @Override

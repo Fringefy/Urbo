@@ -2,8 +2,11 @@ package com.fringefy.urbo;
 
 import android.location.Location;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,6 +70,30 @@ public class Poi {
 		loc[Constants.LONG] = location.getLongitude();
 	}
 
+	public void handleLegacyServer() {
+		if (usig == null && usigs != null) {
+			usig = new Usig();
+			usig.unas = new Usig.Una[usigs.length];
+			int i=0; for (LegacyUsig legacyUsig: usigs) {
+				usig.unas[i++] = new Usig.Una(0, legacyUsig.una);
+			}
+		}
+		usigs = null;
+	}
+
+	public void addClientGeneratedUna(float azimuth, String clientgeneratedUna) {
+		if (usig == null) {
+			usig = new Usig();
+		}
+		if (usig.unas == null) {
+			usig.unas = new Usig.Una[1];
+		}
+		else {
+			usig.unas = Arrays.copyOf(usig.unas, usig.unas.length + 1);
+		}
+		usig.unas[usig.unas.length - 1] = new Usig.Una(azimuth, clientgeneratedUna);
+	}
+
 	/** POI category (type) */
 	public enum Type {
 		Food(1),
@@ -122,6 +149,10 @@ public class Poi {
 
 
 	/** Urban signature (USIG) */
+	@SerializedName("usig")
+	LegacyUsig[] usigs;
+
+	@SerializedName("Usig")
 	Usig usig;
 
 	/** Website */
@@ -213,30 +244,14 @@ public class Poi {
 	}
 
 	private String imgFileName;
-	public String getImageUrl() {
-		return "http://fringefyimages.s3.amazonaws.com/d/" + imgFileName;
-	}
-
 
 // Construction
 
-	public Poi() {
+	public Poi(String sName) {
 		this.bLocked = false;
 		this.clientId = Integer.toString(iNextId.getAndIncrement());
-	}
-
-	public Poi(String sName, String sDescription, Type type, String sFirstComment,
-	           Location location, Date timestamp, String sLocality, String sAddress) {
-		this();
-
+		this.timestamp = new Date();
 		this.name = sName;
-		this.description = sDescription;
-		this.firstComment = sFirstComment;
-		setLocation(location);
-		this.timestamp = timestamp;
-		this.locality = sLocality;
-		this.address = sAddress;
-		this.type = type;
 	}
 
 
@@ -251,8 +266,7 @@ public class Poi {
 	public boolean equals(Object o) {
 		if (o instanceof Poi){
 			Poi poiOther = (Poi)o;
-			return ((this._id != null && this._id.equals(poiOther._id)) ||
-					(this.clientId != null && this.clientId.equals(poiOther.clientId)));
+			return getId().equals(poiOther.getId());
 		}
 		return false;
 	}
@@ -267,5 +281,10 @@ public class Poi {
 	private void lockCheck() {
 		if (bLocked)
 			throw new UnsupportedOperationException("Cannot modify an already registered POI");
+	}
+
+	private class LegacyUsig {
+		public double azimuth;
+		public String una;
 	}
 }
