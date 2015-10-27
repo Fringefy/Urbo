@@ -1,8 +1,11 @@
 # Urbo #
 ## About ##
-The Urbo SDK is the first real-time landmark visual recognition engine in the world. We believe that mobile apps, and devices in general, need to have true context about their users and their intentions, specifically in the urban environment. Since the primary human sense is visual, if accurate context and intention is required, we believe it is an input which cannot be ignored. That’s why we’ve developed Urbo.
+The Urbo SDK is the first real-time landmark visual recognition engine in the world. We believe that mobile apps, and devices in general, need to have true context about their users and their intentions, specifically in the urban environment. Since the primary human sense is visual, if accurate context and intention is required, we believe it is an input which cannot be ignored. That’s why we’ve developed Urbo. 
 
-With the Urbo SDK, any app developer can now integrate this ground breaking technology straight into any app!
+With the Urbo SDK, any app developer can now integrate this ground breaking technology straight into any app! 
+
+Checkout this video to get a feeling of it:  
+  https://www.youtube.com/watch?v=sDj7NlgktGM
 
 ## Core Capabilities ##
 * **Real time recognition of places using the camera**  
