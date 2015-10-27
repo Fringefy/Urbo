@@ -5,3 +5,5 @@
 /build
 /captures
 .gradle
+/app/src/main/gen
+/urbo/src/main/gen
