@@ -17,7 +17,7 @@ Checkout this demo video:
   Allows you to manage the places added by your users and even import places from other databases.
 
 ## Usage ##
-* The Urbo SDK is implemented as a simple Android.
+* The Urbo SDK is implemented as a simple Android/iOS library.
 * The app layer of the SDK is entirely open source! This means you can easily adapt it to your needs.
 * The library contains a custom camera view that can be integrated into any app to recognize places with ease.
 * You can choose to participate in the public Urbo cloud or opt for a private cloud environment, where you can: manage all the places added by your users, add places manually or import from other databases.
