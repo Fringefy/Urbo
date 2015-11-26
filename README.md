@@ -42,6 +42,76 @@ And you're good to go!
 
 Be sure to check the sample app included in the source for advanced usage.
 
+## Quickstart (iOS) ##
+
+### Requirements ###
+**Include following Frameworks:**
+
+* `CoreMotion.framework` 
+* `CoreLocation.framework`
+* `AVFoundation.framework`
+* `opencv2.framework v3.0`
+
+Urbo requires `AFNetworking` instalation.
+
+Also if you are using cocoapods you should add `AssetsLibrary.framework` and `libjpeg.a`. 
+
+Now, download the source, copy `Urbo` to your project folder and add it to your project.
+
+Add following in your class:
+```
+#import "UrboCameraView.h"
+
+#import "Urbo.h"
+```
+and add delegate `UrboDelegate`: 
+
+```
+@interface ViewController : UIViewController <UrboDelegate>
+```
+
+Create display view with custom class `UrboCameraView.h` or if you are using storyboard, change the default class and create the outlet.
+
+Sample initialization:
+```
+- (void)viewDidLoad 
+{
+ [super viewDidLoad];
+ [Urbo sharedInstance].delegate = self;
+}
+
+-(void) viewDidAppear:(BOOL)animated
+{
+ [super viewDidAppear:animated];
+ [self.urboCameraView unFreeze];
+}
+```
+
+If you want to use front cammera just use `setFrontCamera:(BOOL)` method of `UrboCameraView` class before `unFreeze`, like this:
+
+```
+-(void) viewDidAppear:(BOOL)animated
+{
+ [super viewDidAppear:animated];
+ [self.urboCameraView setFrontCamera:YES];
+ [self.urboCameraView unFreeze];
+}
+```
+
+And at last you should implement `UrboDelegate` method:
+
+```
+-(void)urbo:(Urbo *)urbo didChangeState:(int)state withPoi:(POI *)poi
+{
+
+}
+```
+
+And you're good to go!
+
+Be sure to check the sample app included in the source for advanced usage.
+
+
 ## Support / Bugs ##
 If you find a bug please report it here. We try to fix everything!
 

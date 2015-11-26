@@ -1,26 +1,96 @@
-apply plugin: 'com.android.application'
+// Using the experimental plugin (requires gradle 2.5), we can build and debug
+// the native shared library. It depends on the static library built in the "urbo" module.
+//
+//****************************************************************************************
 
-android {
-    compileSdkVersion 21
-    buildToolsVersion "23.0.0 rc3"
-    defaultConfig {
-        applicationId 'com.fringefy.urbo.app'
-        minSdkVersion 17
-        targetSdkVersion 21
-        versionCode 1
-        versionName "1.0"
-    }
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-    }
-    productFlavors {
-    }
-}
+// check if OpenCV has been downloaded locally
+
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+def OpenCV_include = properties.getProperty('OpenCV.dir') + '/sdk/native/jni/include'
+
+// using experimental plugin http://tools.android.com/tech-docs/new-build-system/gradle-experimental
+
+apply plugin: 'com.android.model.application'
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     compile project(':urbo')
+}
+
+model {
+    compileOptions.with {
+        sourceCompatibility = JavaVersion.VERSION_1_7
+        targetCompatibility = JavaVersion.VERSION_1_7
+    }
+
+    android {
+        compileSdkVersion = 21
+        buildToolsVersion = "23.0.0 rc3"
+        defaultConfig.with {
+            applicationId = 'com.fringefy.urbo.app'
+            minSdkVersion.apiLevel = 17
+            targetSdkVersion.apiLevel = 21
+            versionCode = 1
+            versionName = "1.0"
+        }
+    }
+}
+
+// static lib is built with ndk-build, only if OpenCV 3.0 has been donwnloaded locally
+
+def appAbi = "armeabi-v7a"
+def staticLibPath = "../urbo/obj/local/$appAbi/libPexeso.a"
+
+// build the wrapper shared lib around the static lib, using libraries from OpenCV
+// using the experimental plugin
+
+model {
+    android.ndk {
+        moduleName = "pexeso_android"
+        cppFlags = ["-std=c++11", "-fno-rtti", "-fno-exceptions", "-Wno-write-strings"]
+        cppFlags += "-I" + file("../pexeso-android").absolutePath
+        cppFlags += "-I" + file("../../pexeso").absolutePath
+        cppFlags += "-I$OpenCV_include".toString()
+        ldFlags += "$staticLibPath".toString()
+        ldLibs += ["z", "log"]
+
+        stl = "gnustl_static"
+        abiFilters += "$appAbi".toString()
+
+        // here go OpenCV libraries we need
+        ldFlags += "-L$OpenCV_include/../../libs/$appAbi".toString()
+        ldFlags += "-L$OpenCV_include/../../3rdparty/libs/$appAbi".toString()
+        ldLibs += ['opencv_imgproc', 'opencv_core', 'opencv_hal', 'tbb']
+    }
+
+    android.sources {
+        main.jni.source {
+            srcDirs = ["../pexeso-android"]
+        }
+    }
+}
+
+// If OpenCV is not available locally, we use the prebuilt library from GIT or built externally
+
+if (!file("$OpenCV_include").exists()) {
+
+    tasks.all {
+        task ->
+            if (task.name.startsWith('link')) {
+                task.enabled = false
+            }
+            if (task.name.startsWith('compileArm')) {
+                task.enabled = false
+            }
+    }
+
+    model {
+        android.sources {
+            main.jniLibs.source {
+                srcDirs = ["../urbo/libs"]
+            }
+        }
+    }
 }

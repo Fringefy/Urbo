@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="9060" systemVersion="15B42" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" initialViewController="BYZ-38-t0r">
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="9051"/>
+        <capability name="Constraints to layout margins" minToolsVersion="6.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="tne-QT-ifu">
+            <objects>
+                <viewController id="BYZ-38-t0r" customClass="ViewController" sceneMemberID="viewController">
+                    <layoutGuides>
+                        <viewControllerLayoutGuide type="top" id="y3c-jy-aDJ"/>
+                        <viewControllerLayoutGuide type="bottom" id="wfy-db-euE"/>
+                    </layoutGuides>
+                    <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
+                        <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ssU-o6-wCi" customClass="UrboCameraView">
+                                <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
+                                <animations/>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                            </view>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Nw0-vd-gB4">
+                                <rect key="frame" x="10" y="10" width="280" height="40"/>
+                                <animations/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="40" id="0MP-Zr-XCA"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="10"/>
+                                <color key="textColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="MCp-KC-5ab">
+                                <rect key="frame" x="300" y="10" width="280" height="40"/>
+                                <animations/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="40" id="I4Z-P2-wGO"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <color key="textColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <animations/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
+                        <constraints>
+                            <constraint firstItem="ssU-o6-wCi" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="top" id="2U4-GE-Xbx"/>
+                            <constraint firstAttribute="trailingMargin" secondItem="MCp-KC-5ab" secondAttribute="trailing" id="33J-wJ-eKU"/>
+                            <constraint firstItem="MCp-KC-5ab" firstAttribute="leading" secondItem="Nw0-vd-gB4" secondAttribute="trailing" constant="10" id="5i6-m4-TeF"/>
+                            <constraint firstItem="MCp-KC-5ab" firstAttribute="width" secondItem="Nw0-vd-gB4" secondAttribute="width" id="86M-5u-v9v"/>
+                            <constraint firstItem="ssU-o6-wCi" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading" id="K1F-1x-Rlz"/>
+                            <constraint firstAttribute="trailing" secondItem="ssU-o6-wCi" secondAttribute="trailing" id="eCd-TH-0Tf"/>
+                            <constraint firstItem="MCp-KC-5ab" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="topMargin" constant="10" id="joB-Ti-NAU"/>
+                            <constraint firstItem="Nw0-vd-gB4" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="top" constant="10" id="s7i-Yj-Tfb"/>
+                            <constraint firstItem="Nw0-vd-gB4" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading" constant="10" id="ury-gJ-dc7"/>
+                            <constraint firstItem="wfy-db-euE" firstAttribute="top" secondItem="ssU-o6-wCi" secondAttribute="bottom" id="xek-Qs-SOD"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="poiLabel" destination="MCp-KC-5ab" id="shV-um-vmC"/>
+                        <outlet property="stateLabel" destination="Nw0-vd-gB4" id="JUo-6E-XWh"/>
+                        <outlet property="urboCameraView" destination="ssU-o6-wCi" id="5NB-ne-UKG"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="340" y="429"/>
+        </scene>
+    </scenes>
+</document>

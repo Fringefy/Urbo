@@ -1,32 +1,123 @@
-apply plugin: 'com.android.library'
+//
+// Using the experimental plugin (requires gradle 2.5), we can build and debug
+// the native shared library.
+//
+// Unfortunately, the DSL is not (yet?) flexible enough.
+//
+// For example, it does not provide tools to exclude some C++ files or subdirectories
+// from build. On the other hand, the traditional ndk-build approach gives very high level
+// of control, but it does not generate a debuggable binary.
+//
+// Therefore we use the eclectic approach. We build a static library with full power of
+// ndk-build and then we link it with the Android-specific bridge files using the gradle
+// plugin.
+//
+// To guarantee that the shared library is always refreshed, we delete it in gradle task
+// rmSO.
 
-android {
-    compileSdkVersion 21
-    buildToolsVersion "23.0.0 rc3"
+// Note that the native build depends on OpenCV, and it can be skipped if OpenCV is not
+// installed. OpenCV location on local computer should be described twice: in file
+// urbo-android/pexeso-android/local.mk and in urbo-android/local.properties.
+//
+//****************************************************************************************
 
-    defaultConfig {
-        minSdkVersion 17
-        targetSdkVersion 21
-        versionCode 1
-        versionName "1.0"
+// look for NDK directory
+
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+def ndkBuild = properties.getProperty('ndk.dir') + '/ndk-build'
+import org.apache.tools.ant.taskdefs.condition.Os
+if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+    ndkBuild += '.cmd'
+}
+
+// check if OpenCV has been downloaded locally
+
+def OpenCV_include = properties.getProperty('OpenCV.dir') + '/sdk/native/jni/include'
+
+// using experimental plugin http://tools.android.com/tech-docs/new-build-system/gradle-experimental
+
+apply plugin: 'com.android.model.library'
+
+model {
+    compileOptions.with {
+        sourceCompatibility = JavaVersion.VERSION_1_7
+        targetCompatibility = JavaVersion.VERSION_1_7
     }
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-    }
-    sourceSets {
-        main {
-            jniLibs.srcDirs = ['libs']
+
+    android {
+        compileSdkVersion = 21
+        buildToolsVersion = "23.0.0 rc3"
+        defaultConfig.with {
+            minSdkVersion.apiLevel = 17
+            targetSdkVersion.apiLevel = 21
         }
     }
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile 'com.google.android.gms:play-services-location:8.1.0'
+    compile 'com.google.android.gms:play-services-location:7.8.0'
     compile 'com.squareup.retrofit:retrofit:1.9.0'
     compile 'com.squareup.okhttp:okhttp:2.5.0'
     compile 'com.squareup.okio:okio:1.4.0'
+}
+
+// We don't build the native code in this module (currently, build should happen in
+// 'com.android.model.application' to allow native debugging).
+
+tasks.all {
+    task ->
+        if (task.name.startsWith('link')) {
+            task.enabled = false
+        }
+        if (task.name.startsWith('compileArm')) {
+            task.enabled = false
+        }
+        if (task.name.startsWith('bundle')) {
+            task.dependsOn buildSharedLib
+        }
+}
+
+def appAbi = "armeabi-v7a"
+// make sure to run this task before pushing the shared library to GIT
+
+task buildSharedLib(type: Exec, description: 'Compile Shared lib via NDK') {
+    commandLine "$ndkBuild", "NDK_APPLICATION_MK=../pexeso-android/Application.mk",
+            "NDK_PROJECT_PATH=."
+    onlyIf {
+        file('../pexeso-android/local.mk').exists()
+    }
+}
+
+task cleanNative(type: Exec, description: 'Clean JNI object files') {
+    commandLine "$ndkBuild", "clean", "NDK_APPLICATION_MK=../pexeso-android/Application.mk",
+            "NDK_PROJECT_PATH=."
+    onlyIf {
+        file('../pexeso-android/local.mk').exists()
+    }
+}
+
+clean.dependsOn cleanNative
+
+// but we reference the source files of the static library here, to help source navigation
+// and syntax highlighting in Android Studio.
+
+model {
+    android.ndk {
+        moduleName = "pexeso_android"
+        cppFlags = ["-std=c++11", "-fno-rtti", "-fno-exceptions", "-Wno-write-strings"]
+        cppFlags += "-I" + file("../pexeso-android").absolutePath
+        cppFlags += "-I" + file("../../pexeso").absolutePath
+        cppFlags += "-I$OpenCV_include".toString()
+
+        stl = "gnustl_static"
+        abiFilters += "$appAbi".toString()
+    }
+
+    android.sources {
+        main.jni.source {
+            srcDirs = ["../../pexeso", "../pexeso-android"]
+        }
+    }
 }
