@@ -42,7 +42,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		// fastest update frequency (milliseconds), see location services docs
 		private static final int FASTEST_INTERVAL = 1000;
 
-		private String sEndpoint = "https://odie.fringefy.com/odie";
+		private String sEndpoint = "https://stodie.fringefy.com/odie";
 		private static final int MAX_ODIE_CONNECTIONS = 2;
 
 		File fImgDir;
