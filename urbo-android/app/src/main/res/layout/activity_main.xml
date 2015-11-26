@@ -1,8 +1,9 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_main"
+    android:layout_width="match_parent"
     android:layout_height="match_parent"
-   tools:context=".MainActivity">
-
+    tools:context=".MainActivity">
 
     <com.fringefy.urbo.CameraView
         android:id="@+id/camera_view"
@@ -33,13 +34,13 @@
         android:onClick="onClick"
         android:layout_gravity="right|bottom"/>
 
-    <com.fringefy.urbo.app.views.ViewFinder
+    <com.fringefy.urbo.app.view.ViewFinder
         android:id="@+id/aim"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"/>
 
-    <com.fringefy.urbo.app.widget.DebugView
+    <com.fringefy.urbo.app.view.DebugView
         android:id="@+id/debug_view"
         android:layout_width="190dp"
         android:layout_height="wrap_content"
@@ -47,46 +48,5 @@
         android:alpha="0.7"
         android:padding="5dp"
         android:layout_gravity="right|top"/>
-
-    <LinearLayout
-        android:id="@+id/tagging_view"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:visibility="gone"
-        android:layout_margin="100dp"
-        android:layout_gravity="center">
-        <EditText
-            android:id="@+id/poi_name"
-            android:hint="POI Name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
-        <ImageView
-            android:id="@+id/tag_image"
-            android:layout_weight="1"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"/>
-        <Button
-            android:id="@+id/btn_cancel"
-            android:onClick="onClick"
-            android:text="cance"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
-        <Button
-            android:id="@+id/btn_confirm"
-            android:onClick="onClick"
-            android:text="TAG IT!"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
-    </LinearLayout>
-
-    <FrameLayout
-        android:id="@+id/fragment_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-
-
-    </FrameLayout>
 
 </FrameLayout>

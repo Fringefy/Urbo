@@ -1,31 +1,27 @@
 package com.fringefy.urbo;
 
 import android.content.Context;
-import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.location.Location;
-import android.net.Uri;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.RenderScript;
-import android.renderscript.ScriptIntrinsicYuvToRGB;
-import android.renderscript.Type;
+import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.util.Log;
-import android.widget.ImageView;
 
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderApi;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.gson.Gson;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,14 +38,14 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		// fastest update frequency (milliseconds), see location services docs
 		private static final int FASTEST_INTERVAL = 1000;
 
-		private String sEndpoint = "https://stodie.fringefy.com/odie";
+		private String sEndpoint = "https://qaodie.fringefy.com/odie";
 		private static final int MAX_ODIE_CONNECTIONS = 2;
 
 		File fImgDir;
 	}
 
-	public interface PoiCacheObserver {
-		void onListChanged(List<Poi> lstPois);
+	public interface OdieUpdateObserver {
+		void onOdieResponse(OdieUpdate odieUpdate);
 	}
 
 
@@ -57,25 +53,22 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	static private Urbo urbo = null;
 	Params params;
-	RenderScript rs; // used in convertYuvImageToBitmap()
 
-	private PoiCacheObserver poiCacheObserver;
+	private HashSet<OdieUpdateObserver> odieUpdateObservers = new HashSet<>();
 
     // TODO: [AC] initialize these in the constructor
     private String sDeviceId, sCountryCode;
-
-	private volatile List<Poi> poiCache = new ArrayList<>(); // TODO: remove when the request to native is built
 
 	private Odie odie;
 	private OdieBlob odieBlob;
 	private ExecutorService xsIo; // TODO: shift executor to C++
 
+	private LocationManager locationManager;
 	private GoogleApiClient googleApiClient;
 	private FusedLocationProviderApi locationApi;
 	private LocationRequest locationRequest;
-	private Listener listener;
 	private DebugListener debugListener;
-	private ImageView imageViewForSnapshot;
+
 
 // Construction
 
@@ -85,9 +78,10 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 		params = new Params();
 		params.fImgDir = context.getCacheDir();
-		rs = RenderScript.create(context);
 
 		sDeviceId = Build.SERIAL;
+
+		locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
 		// create the LocationRequest object
 		locationRequest = LocationRequest.create();
@@ -108,8 +102,8 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		googleApiClient.connect();
 
 		// setup ODIE
-		odie = OdieFactory.getInstance(params.sEndpoint);
-		odieBlob = new OdieBlob(params.fImgDir);
+		odie = OdieFactory.getInstance(params.sEndpoint, "RnNmIgxtZzcajIZww7NlKnAeYwTjOq9xp9Xu7YkS");
+		odieBlob = new OdieBlob();
 		xsIo = Executors.newFixedThreadPool(Params.MAX_ODIE_CONNECTIONS);
 	}
 
@@ -134,21 +128,17 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	public static final int STATE_NON_INDEXABLE = 3;
 	public static final int STATE_BAD_ORIENTATION = 4;
 	public static final int STATE_MOVING = 5;
+	public static final int SNAPSHOT_ID_INVALID = -1;
 
 	public static class PoiVote {
-		PoiVote(Poi poi, float fVote) {
-			this.poi = poi;
-			this.fVote = fVote;
-		}
-		Poi poi;
-		float fVote;
+		public Poi poi;
+		public float fVote;
 	}
 
 	/**
 	 * public interface
 	 */
 	public interface Listener {
-		// TODO: maybe we prefer to have onStateChanged(void) and call onSnapshot() for STATE_RECOGNIZED?
 		void onStateChanged(int iStateId, Poi poi, long lSnapshotId);
 		void onSnapshot(Snapshot snapshot);
 	}
@@ -168,27 +158,30 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		Pexeso.setListener(listener);
 		return this;
 	}
+
 	public Urbo setDebugListener(DebugListener listener) {
 		debugListener = listener;
 		return this;
 	}
 
-	@SuppressWarnings("unused")
-	public Urbo setPoiListObserver(PoiCacheObserver poiCacheObserver) {
-		this.poiCacheObserver = poiCacheObserver;
+	public Urbo addOdieUpdateObserver(OdieUpdateObserver odieUpdateObserver) {
+		odieUpdateObservers.add(odieUpdateObserver);
 		return this;
 	}
 
 	/**
-	 *
-	 * @return List of Poi's (point of interest) that currently in cache
+	 * @return List of POIs (points of interest) that are currently in cache
 	 */
-	public List<Poi> getPoiCache() {
-		return poiCache;
+	public Poi[] getPoiShortlist(boolean bSort) {
+		return Pexeso.getPoiShortlist(bSort);
 	}
 
 	public void tagSnapshot(@NonNull Snapshot snapshot, @NonNull Poi poi) {
-		//Pexeso.tagSnapshot(snapshot, poi);
+		Pexeso.tagSnapshot(snapshot, poi);
+	}
+
+	public void confirmRecognition(long lSnapshotId) {
+		Pexeso.confirmRecognition(lSnapshotId);
 	}
 
 	public boolean getSnapshot(long lSnapshotId) {
@@ -197,11 +190,6 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	public boolean takeSnapshot() {
 		return Pexeso.takeSnapshot();
-	}
-
-	public Urbo setDisplayView(ImageView imageView) {
-		imageViewForSnapshot = imageView;
-		return this;
 	}
 
 	@SuppressWarnings("unused")
@@ -213,6 +201,12 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		Pexeso.forceCacheRefresh();
 	}
 
+	/**
+	 * @return Gson that can be used to backup and restore local RecoEvent history
+	 */
+	public Gson getGson() {
+		return OdieFactory.getGson();
+	}
 
 // Events
 
@@ -238,20 +232,20 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		Pexeso.pushLocation(location);
 	}
 
-    void onError(String sTag, String sMsg, Throwable e) {
-	    Log.e(sTag, sMsg, e);
-    }
-
 	// TODO: take care of batch requests and retries
-	void onNewRecognition(final Snapshot snapshot) {
+	void onRecognition(final Snapshot snapshot) {
 		xsIo.execute(new Runnable() {
 			@Override
 			public void run() {
+				odieBlob.uploadImage(new File(params.fImgDir, snapshot.getImgFileName()));
 				Odie.PutResponse putResponse = null;
 				try {
 					Odie.PutRequest putRequest = new Odie.PutRequest();
 					if (snapshot.getPoi().isClientOnly()) {
 						putRequest.pois = new Poi[]{snapshot.getPoi()};
+					}
+					else {
+						putRequest.pois = new Poi[0];
 					}
 					putRequest.recognitionEvents = new RecoEvent[]{snapshot};
 
@@ -267,9 +261,8 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 					return;
 				}
 				for (Map.Entry<String, String> entry : putResponse.pois.syncList.entrySet()) {
-					if (snapshot.getPoi().getId() == entry.getKey()) {
+					if (snapshot.getPoi().getId().equals(entry.getKey())) {
 						snapshot.getPoi().setId(entry.getValue());
-						poiCache.add(snapshot.getPoi());
 					}
 				}
 			}
@@ -278,11 +271,16 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	void onCacheRequest(final int iRequestId, final Location location) {
 		xsIo.execute(new Runnable() {
+			long hitMeAgainIn = 0;
+
 			@Override
 			public void run() {
-				Odie.Pois poisResponse = null;
+				if (hitMeAgainIn > 0) {
+					SystemClock.sleep(hitMeAgainIn * 1000);
+				}
+				OdieUpdate odieResponse = null;
 				try {
-					poisResponse = odie.getPois(location.getLatitude(),
+					odieResponse = odie.getPois(location.getLatitude(),
 							location.getLongitude(), location.getAccuracy(),
 							sCountryCode, sDeviceId, false);
 				}
@@ -290,128 +288,81 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 					Log.e("Urbo", "GET /pois failed " + e);
 				}
 
-				if (poisResponse == null) {
-					Log.e(TAG, "poisResponse[" + iRequestId + "] == null");
+				if (odieResponse == null) {
+					Log.e(TAG, "odieResponse[" + iRequestId + "] == null");
 					Pexeso.poiCacheRequestCallback(iRequestId, location, null);
+					for (OdieUpdateObserver observer : odieUpdateObservers) {
+						observer.onOdieResponse(odieResponse);
+					}
 					return;
 				}
 
-				for (Poi poi : poisResponse.pois) {
-					poi.handleLegacyServer();
+				if (odieResponse.hitMeAgainIn > 0) {
+					Log.i(TAG, "odieResponse[" + iRequestId + "] gives " +
+							odieResponse.pois.length + ", hitMeAgainIn " + hitMeAgainIn);
+					hitMeAgainIn = odieResponse.hitMeAgainIn;
+					xsIo.execute(this);
+					return;
 				}
 
-				Log.i(TAG, "poisResponse[" + iRequestId + "] gives " + poisResponse.pois.size());
-				if (Pexeso.poiCacheRequestCallback(iRequestId, location, poisResponse.pois)) {
-					// TODO: accept the fields like poisResponse.sharepageUrl
-					poiCache = poisResponse.pois;
-					odieBlob.setBucket(poisResponse.s3Bucket, poisResponse.s3Folder);
+				Log.i(TAG, "odieResponse[" + iRequestId + "] gives " + odieResponse.pois.length);
+				if (Pexeso.poiCacheRequestCallback(iRequestId, location, odieResponse.pois)) {
+					if (odieResponse.tabpageUrl != null) {
+						Poi.tabpageUrl = odieResponse.tabpageUrl;
+					}
+					for (OdieUpdateObserver observer : odieUpdateObservers) {
+						observer.onOdieResponse(odieResponse);
+					}
+					odieBlob.setBucket(odieResponse.s3Bucket, odieResponse.s3Folder);
 				}
 			}
 		});
+	}
+
+	void onError(String sTag, String sMsg, Throwable e) {
+		Log.e(sTag, sMsg, e);
 	}
 
 	void onError(int severity, String sMsg) {
 	    if (severity == Log.INFO && debugListener != null) {
 		    String[] strings = sMsg.split("\t");
 		    if (strings.length == 2) {
-			    debugListener.setField(strings[0], strings[1]);
+			    debugListener.setField(strings[0].trim(), strings[1].trim());
 		    }
 	    }
 	    if (severity == Log.ERROR && debugListener != null) {
 		    debugListener.toast(sMsg);
 	    }
-	    Log.println(severity, TAG, sMsg);
+		Log.println(severity, TAG, sMsg);
 	}
 
-	/**
-	 * Upload an image file to the Odie server.
-	 * @param fImg The image file to upload
-	 */
-	void uploadImage(File fImg) {
+	// TODO: the method below should be implemented in C++
+	void onSnapshotImageReady(String imgFileName, YuvImage yuvImage) {
+		File imageFile = new File(params.fImgDir, imgFileName);
+		// TODO: if size of accumulated JPG files in cache exceeds the threshold, delete older ones
 		try {
-			odieBlob.uploadImage(fImg);
-		} catch (IOException e) {
-			e.printStackTrace();
+			FileOutputStream fos = new FileOutputStream(imageFile);
+			Rect rcImage = new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight());
+			yuvImage.compressToJpeg(rcImage, 90, fos);
+			fos.close();
+		}
+		catch (Exception e) {
+			Log.e(TAG, "failed to write jpegBuffer", e);
 		}
 	}
 
-	void onSnapshotImageReady(final File fImg) {
-		if (imageViewForSnapshot != null) {
-			imageViewForSnapshot.post(new Runnable() {
-				@Override
-				public void run() {
-					imageViewForSnapshot.setImageURI(Uri.fromFile(fImg));
-				}
-			});
+	public boolean connectLocationService() {
+		boolean gps_enabled = false;
+		try{
+			gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
 		}
+		catch(Exception ex){}
+
+		return gps_enabled;
 	}
 
-	void onSnapshotImageReady(final Bitmap bmp) {
-		if (imageViewForSnapshot != null) {
-			imageViewForSnapshot.post(new Runnable() {
-				@Override
-				public void run() {
-					imageViewForSnapshot.setImageBitmap(bmp);
-					bmp.recycle();
-				}
-			});
-		}
+	public Location getCurrentLocation() {
+		return Pexeso.getCurrentLocation();
 	}
 
-	void onSnapshotImageReady(final YuvImage yuvImage) {
-		if (imageViewForSnapshot != null) {
-			imageViewForSnapshot.post(new Runnable() {
-				@Override
-				public void run() {
-					Bitmap bmp = convertYuvImageToBitmap(yuvImage);
-					imageViewForSnapshot.setImageBitmap(bmp);
-					bmp.recycle();
-				}
-			});
-		}
-	}
-
-	private ScriptIntrinsicYuvToRGB yuvToRgb;
-	private Type.Builder yuvType;
-	private Type.Builder rgbaType;
-	private Allocation yuvAllocation;
-	private Allocation rgbaAllocation;
-
-	// fast enough to run on UI thread
-	private synchronized Bitmap convertYuvImageToBitmap(YuvImage yuvImage) {
-
-		int w = yuvImage.getWidth();
-		int h = yuvImage.getHeight();
-		RenderScript rs = Urbo.urbo.rs;
-
-		if (yuvToRgb == null) { // once
-			yuvToRgb = ScriptIntrinsicYuvToRGB.create(rs, Element.U8_4(rs));
-		}
-
-		if (yuvAllocation == null ||
-				yuvAllocation.getBytesSize() < yuvImage.getYuvData().length) {
-			yuvType = new Type.Builder(rs,
-					Element.U8(rs)).setX(yuvImage.getYuvData().length);
-			yuvAllocation = Allocation.createTyped(rs,
-					yuvType.create(), Allocation.USAGE_SCRIPT);
-		}
-
-		if (rgbaAllocation == null ||
-				rgbaAllocation.getBytesSize() <
-						rgbaAllocation.getElement().getBytesSize() * w * h) {
-			rgbaType = new Type.Builder(rs,
-					Element.RGBA_8888(rs)).setX(w).setY(h);
-			rgbaAllocation = Allocation.createTyped(rs,
-					rgbaType.create(), Allocation.USAGE_SCRIPT);
-		}
-
-		yuvAllocation.copyFrom(yuvImage.getYuvData());
-
-		yuvToRgb.setInput(yuvAllocation);
-		yuvToRgb.forEach(rgbaAllocation);
-
-		Bitmap bmpout = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-		rgbaAllocation.copyTo(bmpout);
-		return bmpout;
-	}
 }

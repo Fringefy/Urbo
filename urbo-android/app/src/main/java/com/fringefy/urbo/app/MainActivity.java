@@ -1,21 +1,31 @@
 package com.fringefy.urbo.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.fringefy.urbo.CameraView;
 import com.fringefy.urbo.Poi;
 import com.fringefy.urbo.Snapshot;
 import com.fringefy.urbo.Urbo;
-import com.fringefy.urbo.app.widget.DebugView;
+import com.fringefy.urbo.app.view.DebugView;
 
-public class MainActivity extends Activity implements Urbo.Listener {
+import java.io.File;
+
+public class MainActivity extends Activity
+		implements Urbo.Listener {
 
     private static final String TAG = "MainActivity";
 
@@ -23,12 +33,15 @@ public class MainActivity extends Activity implements Urbo.Listener {
 
 	private Urbo urbo;
 	private CameraView cameraView;
-	private PoiListFragment searchFragment = new PoiListFragment();
 	private DebugView debugView;
+	private ImageView tagImageView;
+	private EditText poiNameView;
+	private PoiListFragment searchFragment = new PoiListFragment();
 
 	private Poi lastRecognizedPoi = null;
-	private long lastRecognizedSnapshotId = -1;
+	private long lastRecognizedSnapshotId = Urbo.SNAPSHOT_ID_INVALID;
 	private Snapshot snapshot = null;
+	private AlertDialog tagDialog;
 
 // Construction
 
@@ -44,11 +57,39 @@ public class MainActivity extends Activity implements Urbo.Listener {
 
 		debugView = (DebugView) findViewById(R.id.debug_view);
 
+		View dialogView = getLayoutInflater().inflate(R.layout.dialog_tag, null);
+		tagDialog = new AlertDialog.Builder(MainActivity.this)
+				.setView(dialogView)
+				.setPositiveButton("TAG IT!", null)
+				.setNegativeButton("Cancel", null)
+				.setCancelable(true)
+				.create();
+		tagDialog.getWindow().setSoftInputMode(
+				WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+
+		poiNameView = ((EditText) dialogView.findViewById(R.id.poi_name));
+		poiNameView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+			@Override
+			public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+				if (actionId == EditorInfo.IME_NULL) {
+					confirmPoi();
+					return true;
+				}
+				if (actionId == EditorInfo.IME_ACTION_DONE) {
+					confirmPoi();
+					return true;
+				}
+				return false;
+			}
+		});
+		tagImageView = (ImageView) dialogView.findViewById(R.id.tag_image);
+
 		urbo = Urbo.getInstance(this)
 				.setListener(this)
-				.setDebugListener(debugView)
-				.setDisplayView((ImageView) findViewById(R.id.tag_image));
+				.setDebugListener(debugView);
 	}
+
+// UI Event Handlers
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -56,20 +97,8 @@ public class MainActivity extends Activity implements Urbo.Listener {
 		return true;
 	}
 
-
-// UI Event Handlers
-
-	@Override
-	public void onBackPressed() {
-		if (findViewById(R.id.btn_cancel).isShown()) {
-			onClick(findViewById(R.id.btn_cancel));
-		}
-		else {
-			super.onBackPressed();
-		}
-	}
-
 	public void onClick(View view) {
+
 		switch (view.getId()) {
 
 		case R.id.btn_menu:
@@ -81,40 +110,16 @@ public class MainActivity extends Activity implements Urbo.Listener {
 			break;
 
 		case R.id.btn_tag:
-			if (urbo.getSnapshot(lastRecognizedSnapshotId)) {
-				((EditText) findViewById(R.id.poi_name)).setText(lastRecognizedPoi.getName());
-			}
-			else {
-				lastRecognizedSnapshotId = -1;
+			if (!urbo.getSnapshot(lastRecognizedSnapshotId)) {
 				debugView.removeField("POI");
 				debugView.removeField("Snap ID");
-				((EditText) findViewById(R.id.poi_name)).setText("");
 				urbo.takeSnapshot();
 			}
-			break;
-
-		case R.id.btn_cancel:
-			findViewById(R.id.tagging_view).setVisibility(View.GONE);
-			break;
-
-		case R.id.btn_confirm:
-			String sPoiName = ((EditText) findViewById(R.id.poi_name)).getText().toString();
-			urbo.tagSnapshot(snapshot, getPoi(sPoiName));
-			findViewById(R.id.tagging_view).setVisibility(View.GONE);
 			break;
 
 		default:
 			break;
 		}
-	}
-
-	private Poi getPoi(String sPoiName) {
-		for (Poi poi: urbo.getPoiCache()) {
-			if (poi.getName().equalsIgnoreCase(sPoiName)) {
-				return poi;
-			}
-		}
-		return new Poi(sPoiName);
 	}
 
 	@Override
@@ -135,11 +140,12 @@ public class MainActivity extends Activity implements Urbo.Listener {
 			urbo.forceCacheRefresh();
 			break;
 
-			default:
-				break;
+		default:
+			break;
 		}
 		return true;
 	}
+
 
 // Urbo Listeners
 
@@ -179,16 +185,67 @@ public class MainActivity extends Activity implements Urbo.Listener {
 
 	@Override
 	public void onSnapshot(Snapshot snapshot) {
-		findViewById(R.id.tagging_view).setVisibility(View.VISIBLE);
+		Log.d("Urbo", "onSnapshot() " + snapshot.getImgFileName());
 		this.snapshot = snapshot;
+
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				openTagDialog();
+			}
+		});
 	}
 
-    private void showSearch() {
-        searchFragment.setList(urbo.getPoiCache());
+	private void confirmPoi() {
+		Poi poi = getPoi(poiNameView.getText());
+		if (poi != null && snapshot != null) {
+			urbo.tagSnapshot(snapshot, poi);
+			snapshot = null;
+			tagDialog.dismiss();
+		}
+	}
 
-        getFragmentManager().beginTransaction()
-                .add(R.id.fragment_container, searchFragment, "searchFragment")
-                .addToBackStack("searchFragment")
-                .commit();
-    }
+	private Poi getPoi(CharSequence csPoiName) {
+		String sPoiName = csPoiName.toString().trim();
+		if (sPoiName.isEmpty()) {
+			return null;
+		}
+		for (Poi poi : urbo.getPoiShortlist(false)) {
+			if (poi.getName().equalsIgnoreCase(sPoiName)) {
+				return poi;
+			}
+		}
+		return new Poi(sPoiName).setFirstComment("Created with Urbo App");
+	}
+
+	private void openTagDialog() {
+		poiNameView.setText(lastRecognizedPoi == null ? "" : lastRecognizedPoi.getName());
+		tagImageView.setImageURI(
+				Uri.fromFile(new File(getCacheDir(), snapshot.getImgFileName())));
+		tagDialog.show();
+		tagDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(
+				new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						confirmPoi();
+					}
+				});
+		tagDialog.getWindow().setLayout(
+				getWindow().getDecorView().getWidth() * 2 / 3,
+				getWindow().getDecorView().getHeight() * 2 / 3);
+
+		for (Urbo.PoiVote vote: snapshot.getVotes()) {
+			Log.d(TAG, vote.poi.getName() + "\t" + String.format("%.1f", vote.fVote));
+		}
+
+	}
+
+	private void showSearch() {
+		searchFragment.setList(urbo.getPoiShortlist(true));
+
+		getFragmentManager().beginTransaction()
+			.add(R.id.activity_main, searchFragment, "searchFragment")
+			.addToBackStack("searchFragment")
+			.commit();
+	}
 }

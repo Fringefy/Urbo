@@ -2,7 +2,6 @@ package com.fringefy.urbo;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -135,6 +134,11 @@ public class CameraView extends SurfaceView {
 			return false;
 		}
 
+		if (camera == null) {
+			bStartImmediately = true;
+			return false;
+		}
+
 		camera.setPreviewCallbackWithBuffer(eventHandlers);
 		camera.startPreview();
 
@@ -149,6 +153,7 @@ public class CameraView extends SurfaceView {
 					SensorManager.SENSOR_DELAY_GAME);
 		}
 
+		urbo.start();
 		bLive = true;
 		return true;
 	}

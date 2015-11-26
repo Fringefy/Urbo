@@ -3,6 +3,7 @@ package com.fringefy.urbo;
 import android.location.Location;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 abstract class Pexeso {
@@ -15,7 +16,7 @@ abstract class Pexeso {
 		System.loadLibrary("pexeso_android");
 	}
 
-    static void init(File paramsFile, Urbo urbo) {
+	static void init(File paramsFile, Urbo urbo) {
 
 		String sParamsFile = null;
 		if (paramsFile != null && paramsFile.exists() && paramsFile.canRead()) {
@@ -37,8 +38,11 @@ abstract class Pexeso {
 	static native void pushPitch(float fPitch);
 	static native void pushLocation(Location location);
 	static native void forceCacheRefresh();
-	static native boolean poiCacheRequestCallback(int iRequestId, Location location, List<Poi> pois);
+	static native boolean poiCacheRequestCallback(int iRequestId, Location location, Poi[] pois);
     static native boolean takeSnapshot();
-	static native void tagSnapshot(Snapshot snapshot, Poi poi);
+	static native boolean confirmRecognition(long lSnapshotId);
+	static native boolean tagSnapshot(Snapshot snapshot, Poi poi);
 	static native boolean getSnapshot(long lSnapshotId);
+	static native Poi[] getPoiShortlist(boolean bSort);
+	static native Location getCurrentLocation();
 }

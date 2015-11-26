@@ -18,51 +18,64 @@ import android.util.Log;
 class RecoEvent {
 
 	/** the client's timestamp */
-	protected final Date clientTimestamp;
+	private final Date clientTimestamp;
+	public long getTime() {
+		return clientTimestamp.getTime();
+	}
 
-	protected String machineSelectedPoi = null;
-	protected String userSelectedPoi = null;
+	private final String machineSelectedPoi;
+	public String getMachineSelectedPoiId() {
+		return machineSelectedPoi;
+	}
+	private String userSelectedPoi = null;
 
 	/** client location, accuracy, and camera azimuth */
-	protected final double[] loc = new double[2];
-	protected double locAccuracy;
+	private final double[] loc = new double[] { Double.NaN, Double.NaN};
+	private double locAccuracy;
 	public double getCamAzimuth() { return azimuth; }
-	float pitch, azimuth;
+	private float pitch, azimuth;
 
 	private final String imgFileName;
 	public String getImgFileName() { return imgFileName; }
 
 	private String clientGeneratedUNA;
 
-	String getUnaForLocalPoi() {
-		return clientGeneratedUNA;
-	}
-
 	/**
 	 * during a recognition event, If the UNA array in the userSelectedPoi is empty,
 	 * add isIndex=true to the current recognition event
 	 */
-	protected boolean isIndex = false;
-	protected boolean userFeedback = true;
+	private boolean isIndex = false;
+	private boolean userFeedback = false;
+	public boolean isConfirmed() {
+		return userFeedback;
+	}
 
-	protected final String deviceID;
+	private final String deviceID;
+	private static final String sKey;
 
-	protected RecoEvent(@NonNull Location location, float fPitch, float fAzimuth,
-			  @Nullable Poi machineSelectedPoi, @Nullable String sClientUna) {
-
-		deviceID = Build.SERIAL;
-		clientTimestamp = new Date();
-
-		String sKey;
+	static {
+		String key;
 		try {
-			sKey = new BigInteger(1, MessageDigest.getInstance("MD5")
+			key = new BigInteger(1, MessageDigest.getInstance("MD5")
 					.digest(Build.SERIAL.getBytes())).toString(16);
 		}
 		catch (NoSuchAlgorithmException e) {
 			Log.w("RecoEvent", "Could not hash the key", e);
-			sKey = Build.SERIAL;
+			key = Build.SERIAL + Math.random();
 		}
-		imgFileName = sKey.substring(0,8) + "." + clientTimestamp.getTime() + ".jpg";
+		sKey = key.substring(0, 8);
+	}
+
+	public static String currentImgFileName() {
+		return sKey + new Date().getTime() + ".jpg";
+	}
+
+	protected RecoEvent(@NonNull Location location, float fPitch, float fAzimuth,
+			  @Nullable Poi machineSelectedPoi, @Nullable String sClientUna) {
+
+		deviceID = sKey;
+		clientTimestamp = new Date(); // TODO: should be based on frame arrival
+		imgFileName = sKey + "." + clientTimestamp.getTime() + ".jpg";
 
 		loc[Constants.LAT] = location.getLatitude();
 		loc[Constants.LONG] = location.getLongitude();
@@ -71,7 +84,10 @@ class RecoEvent {
 		pitch = fPitch;
 		azimuth = fAzimuth;
 
-		if (machineSelectedPoi != null) {
+		if (machineSelectedPoi == null) {
+			this.machineSelectedPoi = null;
+		}
+		else {
 			this.machineSelectedPoi = machineSelectedPoi.getId();
 		}
 		clientGeneratedUNA = sClientUna;
@@ -87,5 +103,42 @@ class RecoEvent {
 		userFeedback = userSelectedPoi.equals(machineSelectedPoi);
 		isIndex = poi.usig == null || poi.usig.unas == null || poi.usig.unas.length == 0;
 		poi.addClientGeneratedUna(azimuth, clientGeneratedUNA);
+
+		if (!poi.isLocked()) {
+			approximateLaser(poi.loc);
+		}
+		poi.lock();
 	}
+
+	/**
+	 * Extrapolates a location given starting point, distance and bearing.
+	 * inspired by http://goo.gl/aWlB2C
+	 */
+	private void approximateLaser(double[] endPoint) {
+
+		final double radiusEarthKilometres = 6371010;
+		final double laserDistance = 15;
+
+		double dDistRatio = laserDistance / radiusEarthKilometres;
+		double dDistRatioSine = Math.sin(dDistRatio);
+		double dDistRatioCosine = Math.cos(dDistRatio);
+
+		double dStartLatRad = loc[Constants.LAT] * Math.PI / 180;
+		double dStartLonRad = loc[Constants.LONG] * Math.PI / 180;
+
+		double dStartLatCos = Math.cos(dStartLatRad);
+		double dStartLatSin = Math.sin(dStartLatRad);
+
+		double dEndLatRads = Math.asin( (dStartLatSin * dDistRatioCosine) +
+				(dStartLatCos * dDistRatioSine * Math.cos(azimuth)) );
+
+		double dEndLonRads = dStartLonRad
+				+ Math.atan2(
+				Math.sin(azimuth) * dDistRatioSine * dStartLatCos,
+				dDistRatioCosine - dStartLatSin * Math.sin(dEndLatRads));
+
+		endPoint[Constants.LAT] = dEndLatRads * 180 / Math.PI;
+		endPoint[Constants.LONG] = dEndLonRads * 180 / Math.PI;
+	}
+
 }

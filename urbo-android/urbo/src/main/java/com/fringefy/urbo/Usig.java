@@ -1,7 +1,5 @@
 package com.fringefy.urbo;
 
-import java.util.List;
-
 /**
  * A visual urnban signature
  */
@@ -11,17 +9,15 @@ class Usig {
 
     static class Una {
         double azimuth;
-        String unaData;
+        String data;
 
-        public Una(double camAzimuth, String sUna) {
+        Una(double camAzimuth, String sUna) {
             azimuth = camAzimuth;
-            unaData = sUna;
+            data = sUna;
         }
     }
-
 
 // Fields
 
     Una[] unas;
-
 }

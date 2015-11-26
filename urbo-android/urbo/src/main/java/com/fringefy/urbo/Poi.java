@@ -1,31 +1,27 @@
 package com.fringefy.urbo;
 
 import android.location.Location;
-
-import com.google.gson.annotations.SerializedName;
+import android.support.annotation.NonNull;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Represents a POI. This class can be serialized with GSON to comply with the ODIE
- * back-end. The only logic in this POJO is a self-incremented unique client ID
+ * back-end.
+ * This POJO take care of a self-incremented unique client ID, of adding client-generated
+ * UNAs, and enumerating the Urls that come from Factual and other sources.
  */
 
-/* TODO: [AC] strip this class of non-essential data (i.e. addresses, URLs etc.)
-    These fields (and others) can be contained in the host's subclasses
- */
-
-@SuppressWarnings("unused")
 public class Poi {
 
-// Fields
+	public static String tabpageUrl = "http://tabs.alicewho.com/";
 
-	private volatile boolean bLocked;
+	private transient volatile boolean bLocked = true;
+	private transient long nativePtr;
 
 	/** global POI id, can be null in case of a client-only POI */
 	private String _id;
@@ -33,7 +29,7 @@ public class Poi {
 
 	/** unique client ID */
 	private String clientId;
-	boolean isClientOnly() { return _id == null; }
+	public boolean isClientOnly() { return _id == null; }
 	static AtomicInteger iNextId = new AtomicInteger(1); // the next available client ID
 
 	/** returns the global ID, or if it isn't present - the client ID */
@@ -41,57 +37,24 @@ public class Poi {
 
 	private String name;
 	public String getName() { return name; }
-	public void setName(String sName) {
-		lockCheck();
-		name = sName;
-	}
 
 	private String description;
 	public String getDescription() { return description; }
-	public void setDescription(String sDescription) {
+	public Poi setDescription(String sDescription) {
 		lockCheck();
 		description = sDescription;
+		return this;
 	}
 
-	private double[] loc;
-	private transient Location location;
+ 	final double[] loc = new double[] { Double.NaN, Double.NaN };
+	// TODO: maybe keep accuracy, too?
+
 	public Location getLocation() {
-		if (location == null) {
-			location = new Location("Urbo");
-			location.setLatitude(loc[Constants.LAT]);
-			location.setLongitude(loc[Constants.LONG]);
-		}
+		Location location = new Location("Urbo");
+		location.setLatitude(loc[Constants.LAT]);
+		location.setLongitude(loc[Constants.LONG]);
 
 		return location;
-	}
-	public void setLocation(Location location) {
-		lockCheck();
-		loc[Constants.LAT] = location.getLatitude();
-		loc[Constants.LONG] = location.getLongitude();
-	}
-
-	public void handleLegacyServer() {
-		if (usig == null && usigs != null) {
-			usig = new Usig();
-			usig.unas = new Usig.Una[usigs.length];
-			int i=0; for (LegacyUsig legacyUsig: usigs) {
-				usig.unas[i++] = new Usig.Una(0, legacyUsig.una);
-			}
-		}
-		usigs = null;
-	}
-
-	public void addClientGeneratedUna(float azimuth, String clientgeneratedUna) {
-		if (usig == null) {
-			usig = new Usig();
-		}
-		if (usig.unas == null) {
-			usig.unas = new Usig.Una[1];
-		}
-		else {
-			usig.unas = Arrays.copyOf(usig.unas, usig.unas.length + 1);
-		}
-		usig.unas[usig.unas.length - 1] = new Usig.Una(azimuth, clientgeneratedUna);
 	}
 
 	/** POI category (type) */
@@ -112,48 +75,61 @@ public class Poi {
 	}
 	private Type type;
 	public Type getType() { return type; }
-	public void setType(Type type) {
+	public Poi setType(Type type) {
 		lockCheck();
 		this.type = type;
+		return this;
 	}
 
 	/** Address and locality */
 	private String locality;
 	public String getLocality() { return locality; }
-	public void setLocality(String sLocality) {
+	public Poi setLocality(String sLocality) {
 		lockCheck();
 		locality = sLocality;
+		return this;
 	}
 
-	protected String address;
+	private String address;
 	public String getAddress() { return address; }
-	public void setAddress(String sAddress) {
+	public Poi setAddress(String sAddress) {
 		lockCheck();
 		address = sAddress;
+		return this;
 	}
 
 	/** creation time-stamp */
 	private Date timestamp;
 	public Date getTimestamp() { return timestamp; }
-	public void setTimestamp(Date timestamp) {
-		lockCheck();
-		this.timestamp = timestamp;
-	}
 
 	/** first comment to add to the POI when creating it */
 	private String firstComment;
-	public void setFirstComment(String sFirstComment) {
+	public Poi setFirstComment(String sFirstComment) {
 		lockCheck();
 		firstComment = sFirstComment;
+		return this;
 	}
 
+	private String irmaImageUrl;
+	public String getImageUrl() {
+		return irmaImageUrl;
+	}
 
 	/** Urban signature (USIG) */
-	@SerializedName("usig")
-	LegacyUsig[] usigs;
-
-	@SerializedName("Usig")
 	Usig usig;
+
+	void addClientGeneratedUna(float azimuth, String clientGeneratedUna) {
+		if (usig == null) {
+			usig = new Usig();
+		}
+		if (usig.unas == null) {
+			usig.unas = new Usig.Una[1];
+		}
+		else {
+			usig.unas = Arrays.copyOf(usig.unas, usig.unas.length + 1);
+		}
+		usig.unas[usig.unas.length - 1] = new Usig.Una(azimuth, clientGeneratedUna);
+	}
 
 	/** Website */
 	private String website;
@@ -166,6 +142,7 @@ public class Poi {
 	public String getFactualId() { return factualId; }
 
 	/** Factual ID's and URLs, data from http://www.factual.com/products/places-crosswalk */
+	// data from http://www.factual.com/products/places-crosswalk
 	private String tripadvisorId;
 	private String tripadvisorUrl;
 	private String yelpId;
@@ -184,9 +161,29 @@ public class Poi {
 	private String opentableUrl;
 	private String grubhubId;
 	private String grubhubUrl;
+	private String aolId;
+	private String aolUrl;
 	private String homeUrl;
+	private String eventfulId;
+	private String eventfulUrl;
+	private String hotelsId;
+	private String hotelsUrl;
+	private String instagramId;
+	private String instagramUrl;
+	private String openmenuId;
+	private String openmenuUrl;
+	private String superpagesId;
+	private String superpagesUrl;
+	private String yahoogeoplanetId;
+	private String yahoogeoplanetUrl;
+	private String yellopagesId;
+	private String yellowpagesUrl;
+	private String zagatId;
+	private String zagatUrl;
+	private String happyintlvId;
+	private String happyintlvUrl;
 
-	public enum FactualLink {
+	public static enum FactualLink {
 		Google,
 		Home,
 		Tripadvisor,
@@ -198,7 +195,17 @@ public class Poi {
 		Twitter,
 		Opentable,
 		Grubhub,
-		AliceWho
+		AOL,
+		Eventful,
+		Hotels,
+		Instagram,
+		OpenMenu,
+		SuperPages,
+		YahooGeoplanet,
+		YellowPages,
+		Zagat,
+		HappyInTLV,
+		Alice
 	}
 
 	public String getFactualUrl(FactualLink fl) {
@@ -212,14 +219,14 @@ public class Poi {
 					// TODO: error
 					return "https://www.google.com/search?q=" + name;
 				}
-			case AliceWho:
+			case Alice:
 				if (isClientOnly()) {
 					return null;
 				}
-				return "http://tabs.alicewho.com/" + getId();
+				return tabpageUrl + getId();
 
 			case Home:
-				return website;
+				return homeUrl;
 			case Facebook:
 				return facebookUrl;
 			case Foursquare:
@@ -239,21 +246,38 @@ public class Poi {
 				return wikipediaUrl;
 			case Yelp:
 				return yelpUrl;
+			case AOL:
+				return aolUrl;
+			case Eventful:
+				return eventfulUrl;
+			case Hotels:
+				return hotelsUrl;
+			case Instagram:
+				return instagramUrl;
+			case OpenMenu:
+				return openmenuUrl;
+			case SuperPages:
+				return superpagesUrl;
+			case YahooGeoplanet:
+				return yahoogeoplanetUrl;
+			case YellowPages:
+				return yellowpagesUrl;
+			case Zagat:
+				return zagatUrl;
+			case HappyInTLV:
+				return happyintlvUrl;
 		}
 		return null;
 	}
 
-	private String imgFileName;
-
 // Construction
 
-	public Poi(String sName) {
+	public Poi(@NonNull String sName) {
 		this.bLocked = false;
 		this.clientId = Integer.toString(iNextId.getAndIncrement());
 		this.timestamp = new Date();
 		this.name = sName;
 	}
-
 
 // Public Methods
 
@@ -278,13 +302,12 @@ public class Poi {
 		bLocked = true;
 	}
 
+	boolean isLocked() {
+		return bLocked;
+	}
+
 	private void lockCheck() {
 		if (bLocked)
 			throw new UnsupportedOperationException("Cannot modify an already registered POI");
-	}
-
-	private class LegacyUsig {
-		public double azimuth;
-		public String una;
 	}
 }

@@ -10,7 +10,6 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import com.fringefy.urbo.Poi;
-import java.util.List;
 
 
 public class PoiListFragment extends Fragment {
@@ -20,12 +19,12 @@ public class PoiListFragment extends Fragment {
 
 		@Override
 		public int getCount() {
-			return poiMatchList.size();
+			return poiMatchList.length;
 		}
 
 		@Override
 		public Object getItem(int position) {
-			return poiMatchList.get(position);
+			return poiMatchList[position];
 		}
 
 		@Override
@@ -46,7 +45,7 @@ public class PoiListFragment extends Fragment {
 
 			TextView name = (TextView) convertView.findViewById(R.id.text_name);
 			TextView value = (TextView) convertView.findViewById(R.id.text_value);
-			Poi poi = poiMatchList.get(position);
+			Poi poi = poiMatchList[position];
 			name.setText(poi.getName());
 			value.setText(poi.getAddress());
 
@@ -56,7 +55,7 @@ public class PoiListFragment extends Fragment {
 	}
 
     // Members
-	private List<Poi> poiMatchList;
+	private Poi[] poiMatchList;
 	private LayoutInflater layoutInflater;
 	private PoiAdapter poiAdapter = new PoiAdapter();
 
@@ -84,7 +83,7 @@ public class PoiListFragment extends Fragment {
      * <BR> for example the PoiCache.
      * @param matchList List of POI's.
      */
-	public void setList(List<Poi> matchList) {
+	public void setList(Poi[] matchList) {
 		if (matchList != null) {
 			poiMatchList = matchList;
 		}

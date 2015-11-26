@@ -43,6 +43,18 @@ model {
 def appAbi = "armeabi-v7a"
 def staticLibPath = "../urbo/obj/local/$appAbi/libPexeso.a"
 
+tasks.all {
+    task ->
+
+        if (task.name.startsWith('link')) {
+            dependsOn ':urbo:buildSharedLib'
+            outputs.upToDateWhen { false }
+        }
+        if (task.name.startsWith('stripSymbols')) {
+            outputs.upToDateWhen { false }
+        }
+}
+
 // build the wrapper shared lib around the static lib, using libraries from OpenCV
 // using the experimental plugin
 
@@ -79,6 +91,9 @@ if (!file("$OpenCV_include").exists()) {
     tasks.all {
         task ->
             if (task.name.startsWith('link')) {
+                task.enabled = false
+            }
+            if (task.name.startsWith('stripSymbols')) {
                 task.enabled = false
             }
             if (task.name.startsWith('compileArm')) {
