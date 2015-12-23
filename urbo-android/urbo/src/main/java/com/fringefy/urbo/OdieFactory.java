@@ -1,9 +1,8 @@
 package com.fringefy.urbo;
 
-import android.location.Location;
-
 import java.lang.reflect.Type;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import retrofit.RequestInterceptor;
 import retrofit.RestAdapter;
@@ -12,7 +11,6 @@ import retrofit.converter.GsonConverter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
@@ -41,34 +39,26 @@ abstract class OdieFactory {
 					return new JsonPrimitive(d.getTime());
 				}
 			})
-			.registerTypeAdapter(Usig.class, new JsonSerializer<Usig>() {
-				/* TODO: [AC] Move this logic to the Poi class.
-					This logic is way to specific to be hidden so far away from the target (Poi).
-					Use something of the sort of http://stackoverflow.com/a/17733569/2099542 to
-					annotate the Usig field as a "downstream only" field
-				 */
-				@Override
-				public JsonElement serialize(Usig usig, Type typeOfT,
-											 JsonSerializationContext context) {
-					return null;
-				}
-			})
 			.create();
 	}
 
 	static Odie getInstance(String sEndpoint, final String apiKey) {
 
+		OkHttpClient okHttpClient = new OkHttpClient();
+		okHttpClient.setReadTimeout(140, TimeUnit.SECONDS);
 		RestAdapter restAdapter = new RestAdapter.Builder()
-				.setLogLevel(RestAdapter.LogLevel.FULL)
+				.setLogLevel(BuildConfig.DEBUG ?
+						RestAdapter.LogLevel.FULL : RestAdapter.LogLevel.NONE)
 				.setEndpoint(sEndpoint)
 				.setRequestInterceptor(new RequestInterceptor() {
-					@Override public void intercept(RequestFacade request) {
+					@Override
+					public void intercept(RequestFacade request) {
 						request.addHeader("x-api-key", apiKey);
 						request.addHeader("Accept", "application/json");
 					}
 				})
 				.setConverter(new GsonConverter(getGson()))
-				.setClient(new OkClient(new OkHttpClient()))
+				.setClient(new OkClient(okHttpClient))
 				.build();
 
 		return restAdapter.create(Odie.class);

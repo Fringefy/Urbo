@@ -27,62 +27,40 @@ class RecoEvent {
 	public String getMachineSelectedPoiId() {
 		return machineSelectedPoi;
 	}
-	private String userSelectedPoi = null;
+	public boolean isTagged() {
+		return userSelectedPoi != null;
+	}
 
+	private String userSelectedPoi = null;
 	/** client location, accuracy, and camera azimuth */
 	private final double[] loc = new double[] { Double.NaN, Double.NaN};
 	private double locAccuracy;
-	public double getCamAzimuth() { return azimuth; }
-	private float pitch, azimuth;
+	public double getCamAzimuth() { return camAzimuth; }
 
+	private float pitch, camAzimuth;
 	private final String imgFileName;
+
 	public String getImgFileName() { return imgFileName; }
 
 	private String clientGeneratedUNA;
-
-	/**
-	 * during a recognition event, If the UNA array in the userSelectedPoi is empty,
-	 * add isIndex=true to the current recognition event
-	 */
 	private boolean isIndex = false;
 	private boolean userFeedback = false;
-	public boolean isConfirmed() {
-		return userFeedback;
-	}
 
 	private final String deviceID;
-	private static final String sKey;
-
-	static {
-		String key;
-		try {
-			key = new BigInteger(1, MessageDigest.getInstance("MD5")
-					.digest(Build.SERIAL.getBytes())).toString(16);
-		}
-		catch (NoSuchAlgorithmException e) {
-			Log.w("RecoEvent", "Could not hash the key", e);
-			key = Build.SERIAL + Math.random();
-		}
-		sKey = key.substring(0, 8);
-	}
-
-	public static String currentImgFileName() {
-		return sKey + new Date().getTime() + ".jpg";
-	}
 
 	protected RecoEvent(@NonNull Location location, float fPitch, float fAzimuth,
 			  @Nullable Poi machineSelectedPoi, @Nullable String sClientUna) {
 
-		deviceID = sKey;
+		deviceID = Urbo.getInstance(null).sDeviceId;
 		clientTimestamp = new Date(); // TODO: should be based on frame arrival
-		imgFileName = sKey + "." + clientTimestamp.getTime() + ".jpg";
+		imgFileName = deviceID + "." + clientTimestamp.getTime() + ".jpg";
 
 		loc[Constants.LAT] = location.getLatitude();
 		loc[Constants.LONG] = location.getLongitude();
 		locAccuracy = location.getAccuracy();
 
 		pitch = fPitch;
-		azimuth = fAzimuth;
+		camAzimuth = fAzimuth;
 
 		if (machineSelectedPoi == null) {
 			this.machineSelectedPoi = null;
@@ -92,53 +70,4 @@ class RecoEvent {
 		}
 		clientGeneratedUNA = sClientUna;
 	}
-
-	transient protected String poiNameForLog = "?";
-	public String toStringForLog() {
-		return "\"" + poiNameForLog + "\" " + loc[Constants.LAT] + ", " + loc[Constants.LONG];
-	}
-
-	protected void setUserSelectedPoi(@NonNull Poi poi) {
-		userSelectedPoi = poi.getId();
-		userFeedback = userSelectedPoi.equals(machineSelectedPoi);
-		isIndex = poi.usig == null || poi.usig.unas == null || poi.usig.unas.length == 0;
-		poi.addClientGeneratedUna(azimuth, clientGeneratedUNA);
-
-		if (!poi.isLocked()) {
-			approximateLaser(poi.loc);
-		}
-		poi.lock();
-	}
-
-	/**
-	 * Extrapolates a location given starting point, distance and bearing.
-	 * inspired by http://goo.gl/aWlB2C
-	 */
-	private void approximateLaser(double[] endPoint) {
-
-		final double radiusEarthKilometres = 6371010;
-		final double laserDistance = 15;
-
-		double dDistRatio = laserDistance / radiusEarthKilometres;
-		double dDistRatioSine = Math.sin(dDistRatio);
-		double dDistRatioCosine = Math.cos(dDistRatio);
-
-		double dStartLatRad = loc[Constants.LAT] * Math.PI / 180;
-		double dStartLonRad = loc[Constants.LONG] * Math.PI / 180;
-
-		double dStartLatCos = Math.cos(dStartLatRad);
-		double dStartLatSin = Math.sin(dStartLatRad);
-
-		double dEndLatRads = Math.asin( (dStartLatSin * dDistRatioCosine) +
-				(dStartLatCos * dDistRatioSine * Math.cos(azimuth)) );
-
-		double dEndLonRads = dStartLonRad
-				+ Math.atan2(
-				Math.sin(azimuth) * dDistRatioSine * dStartLatCos,
-				dDistRatioCosine - dStartLatSin * Math.sin(dEndLatRads));
-
-		endPoint[Constants.LAT] = dEndLatRads * 180 / Math.PI;
-		endPoint[Constants.LONG] = dEndLonRads * 180 / Math.PI;
-	}
-
 }

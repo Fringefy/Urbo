@@ -5,14 +5,17 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import com.fringefy.urbo.Poi;
 
 
-public class PoiListFragment extends Fragment {
+public class PoiListFragment extends Fragment implements AdapterView.OnItemClickListener {
 
 	//List adapter inner class
 	private class PoiAdapter extends BaseAdapter implements ListAdapter {
@@ -66,11 +69,12 @@ public class PoiListFragment extends Fragment {
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
 
-		View rootView = inflater.inflate(R.layout.fragment_listview, container, false);
+		View rootView = inflater.inflate(R.layout.listview_fragment, container, false);
 
 		layoutInflater = LayoutInflater.from(getActivity());
 		ListView poiList = (ListView) rootView.findViewById(R.id.poi_list);
 		poiList.setAdapter(poiAdapter);
+		poiList.setOnItemClickListener(this);
 
 		return rootView;
 	}
@@ -88,5 +92,12 @@ public class PoiListFragment extends Fragment {
 			poiMatchList = matchList;
 		}
 		poiAdapter.notifyDataSetChanged();
+	}
+
+	@Override
+	public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+		Toast.makeText(getActivity(),
+			"clicked Id=" + position + poiMatchList[position].getId(),
+			Toast.LENGTH_LONG).show();
 	}
 }

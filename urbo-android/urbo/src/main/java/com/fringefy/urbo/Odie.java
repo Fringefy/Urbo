@@ -16,6 +16,14 @@ interface Odie {
                     @Query("deviceId") String sDeviceId,
                     @Query("settings") boolean bGetSettings);
 
+	class OdieUpdate {
+		public Poi[] pois;
+		public float radius;
+		public int hitMeAgainIn;
+		public String s3Bucket;
+		public String s3Folder;
+	}
+
 	@PUT("/pois")
 	PutResponse sync(@Body PutRequest putReq);
 
@@ -25,10 +33,9 @@ interface Odie {
 	}
 
 	class PutResponse {
-		public class PoisResponse {
-			public Map<String, String> syncList;
+		class Pois {
+			Map<String, String> syncList;
 		}
-
-		public PoisResponse pois;
+		Pois pois;
 	}
 }

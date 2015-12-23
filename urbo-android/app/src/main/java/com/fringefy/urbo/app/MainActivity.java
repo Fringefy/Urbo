@@ -1,8 +1,11 @@
 package com.fringefy.urbo.app;
 
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,29 +14,31 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.AlphaAnimation;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.fringefy.urbo.CameraView;
+import com.fringefy.urbo.DebugListener;
 import com.fringefy.urbo.Poi;
 import com.fringefy.urbo.Snapshot;
 import com.fringefy.urbo.Urbo;
-import com.fringefy.urbo.app.view.DebugView;
 
 import java.io.File;
 
-public class MainActivity extends Activity
-		implements Urbo.Listener {
 
-    private static final String TAG = "MainActivity";
+public class MainActivity extends Activity implements Urbo.Listener, DebugListener, View.OnLongClickListener {
+
+	private static final String TAG = "MainActivity";
+	public static final int DOBLECLICK_MILLIS = 900;
 
 // Members
 
 	private Urbo urbo;
 	private CameraView cameraView;
-	private DebugView debugView;
+	private DebugListener debugListener;
 	private ImageView tagImageView;
 	private EditText poiNameView;
 	private PoiListFragment searchFragment = new PoiListFragment();
@@ -43,21 +48,51 @@ public class MainActivity extends Activity
 	private Snapshot snapshot = null;
 	private AlertDialog tagDialog;
 
+	private TextView recognizedView;
+	private TextView stateView;
+	private TextView scoreView;
+	private AlphaAnimation fadeoutAnimation;
+
+
 // Construction
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		setContentView(R.layout.activity_main);
+		if (getResources().getConfiguration().orientation ==
+				Configuration.ORIENTATION_LANDSCAPE) {
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+			debugListener = this;
+		}
+		else {
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+		}
+		setContentView(R.layout.main_activity);
 		cameraView = (CameraView) findViewById(R.id.camera_view);
 		if (cameraView.isLive()) {
 			getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		}
 
-		debugView = (DebugView) findViewById(R.id.debug_view);
+		if (debugListener == null) {
+			debugListener = (DebugListener) findViewById(R.id.debug_view);
+		}
+		else {
+			recognizedView = (TextView) findViewById(R.id.recognized);
+			recognizedView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+			recognizedView.setAlpha(0f);
+			recognizedView.setOnLongClickListener(this);
+			stateView = (TextView) findViewById(R.id.state);
+			scoreView = (TextView) findViewById(R.id.score);
+			stateView.setText("");
+			scoreView.setText("");
+			fadeoutAnimation = new AlphaAnimation(1f, 0f);
+			fadeoutAnimation.setFillAfter(true);
+			fadeoutAnimation.setDuration(700);
+			fadeoutAnimation.setStartOffset(2000);
+		}
 
-		View dialogView = getLayoutInflater().inflate(R.layout.dialog_tag, null);
+		View dialogView = getLayoutInflater().inflate(R.layout.tag_dialog, null);
 		tagDialog = new AlertDialog.Builder(MainActivity.this)
 				.setView(dialogView)
 				.setPositiveButton("TAG IT!", null)
@@ -85,9 +120,11 @@ public class MainActivity extends Activity
 		tagImageView = (ImageView) dialogView.findViewById(R.id.tag_image);
 
 		urbo = Urbo.getInstance(this)
+				.setApiKey(getString(R.string.urbo_apiKey))
 				.setListener(this)
-				.setDebugListener(debugView);
+				.setDebugListener(debugListener);
 	}
+
 
 // UI Event Handlers
 
@@ -95,6 +132,18 @@ public class MainActivity extends Activity
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.menu_main, menu);
 		return true;
+	}
+
+	@Override
+	public boolean onLongClick(View view) {
+		switch (view.getId()) {
+
+		case R.id.recognized:
+			urbo.confirmRecognition(lastRecognizedSnapshotId);
+			recognizedView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+			return true;
+		}
+		return false;
 	}
 
 	public void onClick(View view) {
@@ -111,8 +160,8 @@ public class MainActivity extends Activity
 
 		case R.id.btn_tag:
 			if (!urbo.getSnapshot(lastRecognizedSnapshotId)) {
-				debugView.removeField("POI");
-				debugView.removeField("Snap ID");
+				debugListener.removeField("POI");
+				debugListener.removeField("Snap ID");
 				urbo.takeSnapshot();
 			}
 			break;
@@ -154,24 +203,24 @@ public class MainActivity extends Activity
 
 		switch (iStateId) {
 		case Urbo.STATE_SEARCH:
-			debugView.setField("State", "seaching...");
+			debugListener.setField("State", "seaching...");
 			break;
 		case Urbo.STATE_RECOGNITION:
-			debugView.setField("State", "Recognition");
-			debugView.setField("POI", poi.getName());
-			debugView.setField("Snap ID", String.valueOf(lSnapshotId));
+			debugListener.setField("State", "Recognition");
+			debugListener.setField("POI", poi.getName());
+			debugListener.setField("Snap ID", String.valueOf(lSnapshotId));
 			break;
 		case Urbo.STATE_NO_RECOGNITION:
-			debugView.setField("State", "No recognition");
+			debugListener.setField("State", "No recognition");
 			break;
 		case Urbo.STATE_NON_INDEXABLE:
-			debugView.setField("State", "Non indexable");
+			debugListener.setField("State", "Non indexable");
 			break;
 		case Urbo.STATE_BAD_ORIENTATION:
-			debugView.setField("State", "Bad orientation");
+			debugListener.setField("State", "Bad orientation");
 			break;
 		case Urbo.STATE_MOVING:
-			debugView.setField("State", "Moving");
+			debugListener.setField("State", "Moving");
 			break;
 		default:
 			break;
@@ -181,11 +230,40 @@ public class MainActivity extends Activity
 			lastRecognizedPoi = poi;
 			lastRecognizedSnapshotId = lSnapshotId;
 		}
+
+		if (recognizedView != null) {
+			runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					if (iStateId == Urbo.STATE_RECOGNITION) {
+						recognizedView.clearAnimation();
+						recognizedView.setText(poi.getName());
+						recognizedView.setAlpha(1f);
+					}
+					else {
+						if (recognizedView.getAnimation() == null) {
+							recognizedView.startAnimation(fadeoutAnimation);
+						}
+					}
+				}
+			});
+		}
 	}
 
 	@Override
 	public void onSnapshot(Snapshot snapshot) {
-		Log.d("Urbo", "onSnapshot() " + snapshot.getImgFileName());
+		if (snapshot.isTagged()) {
+			runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					recognizedView.clearAnimation();
+					recognizedView.setText("Thanks for sharing!");
+					recognizedView.setAlpha(1f);
+					recognizedView.startAnimation(fadeoutAnimation);
+				}
+			});
+			return;
+		}
 		this.snapshot = snapshot;
 
 		runOnUiThread(new Runnable() {
@@ -210,7 +288,7 @@ public class MainActivity extends Activity
 		if (sPoiName.isEmpty()) {
 			return null;
 		}
-		for (Poi poi : urbo.getPoiShortlist(false)) {
+		for (Poi poi : urbo.getPoiShortlist()) {
 			if (poi.getName().equalsIgnoreCase(sPoiName)) {
 				return poi;
 			}
@@ -234,18 +312,49 @@ public class MainActivity extends Activity
 				getWindow().getDecorView().getWidth() * 2 / 3,
 				getWindow().getDecorView().getHeight() * 2 / 3);
 
-		for (Urbo.PoiVote vote: snapshot.getVotes()) {
+		for (Urbo.PoiVote vote : snapshot.getVotes()) {
 			Log.d(TAG, vote.poi.getName() + "\t" + String.format("%.1f", vote.fVote));
 		}
 
 	}
 
 	private void showSearch() {
-		searchFragment.setList(urbo.getPoiShortlist(true));
+		searchFragment.setList(urbo.getPoiShortlist());
 
 		getFragmentManager().beginTransaction()
-			.add(R.id.activity_main, searchFragment, "searchFragment")
-			.addToBackStack("searchFragment")
-			.commit();
+				.add(R.id.activity_main, searchFragment, "searchFragment")
+				.addToBackStack("searchFragment")
+				.commit();
+	}
+
+	@Override
+	public void toast(String sMsg) {
+	}
+
+	@Override
+	public void setField(final String sId, final String sVal) {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				if (sId.equals("score")) {
+					scoreView.setText(sVal.replaceFirst("^k", ""));
+				}
+				else if (sId.equals("State")) {
+					stateView.setText(sVal);
+				}
+			}
+		});
+	}
+
+	@Override
+	public void removeField(String sId) {
+		if (sId.equals("score")) {
+			runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					scoreView.setText("");
+				}
+			});
+		}
 	}
 }

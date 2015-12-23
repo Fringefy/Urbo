@@ -1,12 +1,9 @@
 package com.fringefy.urbo;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.hardware.Camera;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.Nullable;
@@ -17,19 +14,18 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.FrameLayout;
 
-import java.util.Arrays;
 import java.util.List;
 
 
 @SuppressWarnings("deprecation")
-public class CameraView extends SurfaceView {
+public class CameraView extends SurfaceView
+		implements SurfaceHolder.Callback, Camera.PreviewCallback {
 
 	private static final String TAG = "CameraView";
 	private static final double ASPECT_TOLERANCE = 0.1;	// when choosing preview size
-	public static final int DEFAULT_ROTATION_VECTOR_LENGTH = 9;
-	public static final int SAMSUNG_ROTATION_VECTOR_LENGTH = 3; // see https://groups.google.com/d/msg/android-developers/U3N9eL5BcJk/X3RbVdy2rZMJ
-	private int nTrimRotationVector = DEFAULT_ROTATION_VECTOR_LENGTH;
-
+	private static final int ROTATION_0 = 0;
+	private static final int ROTATION_90 = 1;
+	private static final int ROTATION_270 = -1;
 
 // Inner Classes
 
@@ -45,17 +41,10 @@ public class CameraView extends SurfaceView {
 	private boolean bStartImmediately;
 	private int iCamId;
 	private int iFrameW, iFrameH;
+	private int iRotation;
 	private boolean bLive;
 
-	private Sensor sensorRotationVec;
-	private Sensor sensorAccelerometer;
-	private float[] mGravity;
-	private Sensor sensorMagnetic;
-	private float[] mGeomagnetic;
-
-	private SensorManager sensorManager;
-
-	private EventHandlers eventHandlers;
+	private RotationSensorListener rotationSensorListener;
 
 
 // Construction
@@ -82,7 +71,23 @@ public class CameraView extends SurfaceView {
 
 		urbo = Urbo.getInstance(getContext());
 
-		eventHandlers = new EventHandlers();
+		if (getContext().getResources().getConfiguration().orientation ==
+				Configuration.ORIENTATION_LANDSCAPE) {
+			iRotation = ROTATION_0;
+		}
+		else {
+			android.hardware.Camera.CameraInfo info =
+					new android.hardware.Camera.CameraInfo();
+			android.hardware.Camera.getCameraInfo(0, info);
+			if (info.orientation == 90) {
+				iRotation = ROTATION_90;
+			}
+			else if (info.orientation == 270) {
+				iRotation = ROTATION_270;
+			}
+		}
+
+		rotationSensorListener = new RotationSensorListener(getContext());
 
 		// initialize camera thread
 		htCam = new HandlerThread("CameraThread");
@@ -98,14 +103,7 @@ public class CameraView extends SurfaceView {
 
 		a.recycle();
 
-		sensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
-		sensorRotationVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-		if (sensorRotationVec == null) {
-			sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-			sensorMagnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-		}
-
-		getHolder().addCallback(eventHandlers);
+		getHolder().addCallback(this);
 	}
 
 
@@ -122,38 +120,32 @@ public class CameraView extends SurfaceView {
 			camera.stopPreview();
 		}
 		Log.d(TAG, "Freeze()");
-		sensorManager.unregisterListener(eventHandlers);
+		rotationSensorListener.freeze();
 
 		bLive = false;
 		return true;
 	}
 
 	public boolean unFreeze() {
-		if (bLive) {
-			Log.d(TAG, "bLive = true");
-			return false;
-		}
 
 		if (camera == null) {
 			bStartImmediately = true;
 			return false;
 		}
 
-		camera.setPreviewCallbackWithBuffer(eventHandlers);
+		if (bLive) {
+			Log.d(TAG, "bLive = true");
+			rotationSensorListener.unFreeze();
+			urbo.start();
+			return false;
+		}
+
+		camera.setPreviewCallbackWithBuffer(this);
 		camera.startPreview();
 
-		if (sensorRotationVec != null) {
-			sensorManager.registerListener(eventHandlers, sensorRotationVec,
-					SensorManager.SENSOR_DELAY_GAME);
-		}
-		else {
-			sensorManager.registerListener(eventHandlers, sensorAccelerometer,
-					SensorManager.SENSOR_DELAY_GAME);
-			sensorManager.registerListener(eventHandlers, sensorMagnetic,
-					SensorManager.SENSOR_DELAY_GAME);
-		}
-
+		rotationSensorListener.unFreeze();
 		urbo.start();
+
 		bLive = true;
 		return true;
 	}
@@ -164,8 +156,6 @@ public class CameraView extends SurfaceView {
 
 // Event Handlers
 
-	private class EventHandlers implements SurfaceHolder.Callback,
-			SensorEventListener, Camera.PreviewCallback {
 		@Override
 		public void surfaceCreated(SurfaceHolder holder) {
 			// init camera
@@ -197,7 +187,7 @@ public class CameraView extends SurfaceView {
 					cameraSetup(w, h);
 					bCamInitialized = true;
 
-					Pexeso.initLiveFeed(iFrameW, iFrameH, camera);
+					Pexeso.initLiveFeed(iFrameW, iFrameH, iRotation, camera);
 
 					if (bStartImmediately) {
 						unFreeze();
@@ -218,44 +208,14 @@ public class CameraView extends SurfaceView {
 		}
 
 		@Override
-		public void onAccuracyChanged(Sensor sensor, int accuracy) {
-		}
-
-		@Override
-		public void onSensorChanged(SensorEvent event) {
-			if (event.sensor.equals(sensorRotationVec)) {
-				onOrientationChanged(computeOrientation(event.values));
-				return;
-			}
-			else if (event.sensor.equals(sensorMagnetic)) {
-				mGeomagnetic = event.values;
-			}
-			else if (event.sensor.equals(sensorAccelerometer)) {
-				mGravity = event.values;
-				if (sensorMagnetic == null) {
-					mGeomagnetic = new float[]{-39.0625f, -19.0625f, 27.25f};
-				}
-			}
-			// TODO: may be necessary to improve buffering of raw sensor data
-			if (mGravity != null && mGeomagnetic != null) {
-				float R[] = new float[DEFAULT_ROTATION_VECTOR_LENGTH];
-				if (SensorManager.getRotationMatrix(R, null, mGravity, mGeomagnetic)) {
-					onOrientationChanged(computeOrientation(R));
-				}
-			}
-		}
-
-		@Override
 		public void onPreviewFrame(byte[] data, Camera camera) {
 			Pexeso.pushFrame(data);
 		}
-	}
 
 
 // Private Methods
 
 	private void cameraSetup(int w, int h) {
-
 		try {
 			Camera.Parameters params = camera.getParameters();
 
@@ -269,8 +229,14 @@ public class CameraView extends SurfaceView {
 				params.setFocusMode(Camera.Parameters.FOCUS_MODE_INFINITY);
 			}
 
-			// get the optimal preview size for 90° rotation
-			Camera.Size optimalSize = getOptimalSize(params.getSupportedPreviewSizes(), h, w);
+			Camera.Size optimalSize;
+			if (iRotation != ROTATION_0) {
+				// get the optimal preview size for 90° rotation
+				optimalSize = getOptimalSize(params.getSupportedPreviewSizes(), h, w);
+			}
+			else {
+				optimalSize = getOptimalSize(params.getSupportedPreviewSizes(), w, h);
+			}
 
 			// finalize the preview settings
 			params.setPreviewSize(optimalSize.width, optimalSize.height);
@@ -282,13 +248,27 @@ public class CameraView extends SurfaceView {
 			final FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
 			double cameraAspectRatio = ((double) optimalSize.width) / optimalSize.height;
 
-			if ((((double)h) / w) > cameraAspectRatio) {
-				lp.width = (int) (h / cameraAspectRatio + 0.5);
-				lp.height = h;
-			} else {
-				lp.height = (int) (w * cameraAspectRatio + 0.5);
-				lp.width = w;
-				lp.topMargin = (h - lp.height) / 2;
+			if (iRotation != ROTATION_0) {
+				if ((((double) h) / w) > cameraAspectRatio) {
+					lp.width = (int) (h / cameraAspectRatio + 0.5);
+					lp.height = h;
+				}
+				else {
+					lp.height = (int) (w * cameraAspectRatio + 0.5);
+					lp.width = w;
+					lp.topMargin = (h - lp.height) / 2;
+				}
+			}
+			else {
+				if ((((double) w) / h) > cameraAspectRatio) {
+					lp.width = (int) (h * cameraAspectRatio + 0.5);
+					lp.height = h;
+				}
+				else {
+					lp.height = (int) (w / cameraAspectRatio + 0.5);
+					lp.width = w;
+					lp.topMargin = (h - lp.height) / 2;
+				}
 			}
 			lp.gravity = Gravity.CENTER_HORIZONTAL | Gravity.TOP;
 
@@ -306,7 +286,13 @@ public class CameraView extends SurfaceView {
 			params.setPictureSize(optimalPictureSize.width, optimalPictureSize.height);
 
 			camera.setParameters(params);
-			camera.setDisplayOrientation(90);
+
+			if (iRotation == ROTATION_90) {
+				camera.setDisplayOrientation(90);
+			}
+			else if (iRotation == ROTATION_270) {
+				camera.setDisplayOrientation(270);
+			}
 			camera.setPreviewDisplay(getHolder());
 
 		} catch (Exception e) {
@@ -343,72 +329,5 @@ public class CameraView extends SurfaceView {
 
 		return optimalSize;
 	}
-
-	private float[] computeOrientation(float[] afRotationVectorOrMatrix) {
-
-		if (afRotationVectorOrMatrix == null) {
-			return null;
-		}
-
-		// compute rotation matrix
-		float[] R;
-		if (afRotationVectorOrMatrix.length >= DEFAULT_ROTATION_VECTOR_LENGTH) {
-			R = afRotationVectorOrMatrix; // this is actually rotation matrix
-		}
-		else {
-			R = new float[DEFAULT_ROTATION_VECTOR_LENGTH];
-			if (afRotationVectorOrMatrix.length > nTrimRotationVector) {
-				afRotationVectorOrMatrix =
-						Arrays.copyOf(afRotationVectorOrMatrix, nTrimRotationVector);
-			}
-			try {
-				SensorManager.getRotationMatrixFromVector(R, afRotationVectorOrMatrix);
-			}
-			catch (java.lang.IllegalArgumentException ex) {
-				Log.e(TAG, "exception in getRotationMatrixFromVector of length "
-						+ afRotationVectorOrMatrix.length, ex);
-
-				// if this is Samsung Note 3 or similar, work around it
-				// see https://groups.google.com/d/msg/android-developers/U3N9eL5BcJk/X3RbVdy2rZMJ
-				if (afRotationVectorOrMatrix.length > SAMSUNG_ROTATION_VECTOR_LENGTH) {
-					nTrimRotationVector = SAMSUNG_ROTATION_VECTOR_LENGTH;
-					return computeOrientation(Arrays.copyOf(afRotationVectorOrMatrix, SAMSUNG_ROTATION_VECTOR_LENGTH));
-				}
-				else {
-					return new float[] { 0, -(float)Math.PI/2, 0 };
-				}
-			}
-		}
-
-		float[] afOrientation = SensorManager.getOrientation(R, new float[3]);
-
-		// compute azimuth (REF: http://goo.gl/JWhks6)
-		afOrientation[0] = (float)Math.atan2(R[1] - R[3], R[0] + R[4]);
-		return afOrientation;
-	}
-
-	private void onOrientationChanged(float[] afOrientation) {
-
-		// heading - degrees [0, 359.99] with 0 north,
-		// pitch - degrees [-180, 179.99] with 0 perpendicular upright,
-		//         90 flat up, 90 flat down, -180 ~= 179 = perpendicular upside down
-
-		// afOrientation[0] is from -PI to PI with 0 to North
-		double heading = afOrientation[0] / Math.PI * 180;
-		if (heading < 0) {
-			heading += 360;
-		}
-
-		// afOrinetation[1] is from 0 (flat) to PI (upright)
-		// afOrinetation[2] is ~0 when screen looks up, ~PI when screen looks down
-		if (Math.abs(afOrientation[2]) < Math.PI/2) {
-			Pexeso.pushPitch(90 + afOrientation[1] / (float) Math.PI * 180);
-		}
-		else {
-			Pexeso.pushPitch(-(90 + afOrientation[1] / (float) Math.PI * 180));
-		}
-		Pexeso.pushHeading((float)heading);
-	}
-
 
 }

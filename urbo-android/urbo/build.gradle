@@ -106,6 +106,8 @@ clean.dependsOn cleanNative
 model {
     android.ndk {
         moduleName = "pexeso_android"
+        toolchain = "gcc"
+        toolchainVersion = "4.9"
         cppFlags = ["-std=c++11", "-fno-rtti", "-fno-exceptions", "-Wno-write-strings"]
         cppFlags += "-I" + file("../pexeso-android").absolutePath
         cppFlags += "-I" + file("../../pexeso").absolutePath

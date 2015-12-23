@@ -1,0 +1,78 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <com.fringefy.urbo.CameraView
+        android:id="@+id/camera_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <com.fringefy.urbo.app.view.DebugView
+        android:id="@+id/debug_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:padding="5dp" />
+
+    <!--<Button-->
+        <!--android:id="@+id/btn_menu"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:text="Menu"-->
+        <!--android:visibility="gone"-->
+        <!--android:onClick="onClick"-->
+        <!--android:layout_gravity="left|bottom"/>-->
+
+    <!--<Button-->
+        <!--android:id="@+id/btn_search"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:text="Search"-->
+        <!--android:visibility="gone"-->
+        <!--android:onClick="onClick"-->
+        <!--android:layout_gravity="center_horizontal|bottom"/>-->
+
+    <!--<Button-->
+        <!--android:id="@+id/btn_tag"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:text="TAG"-->
+        <!--android:visibility="gone"-->
+        <!--android:onClick="onClick"-->
+        <!--android:layout_gravity="right|bottom"/>-->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textSize="60sp"
+        android:text="Poi Name"
+        android:clickable="true"
+        android:longClickable="true"
+        android:id="@+id/recognized"
+        android:gravity="center"
+        android:textStyle="bold"
+        android:textIsSelectable="false"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="score"
+        android:id="@+id/score"
+        android:layout_gravity="left|bottom"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="state"
+        android:id="@+id/state"
+        android:layout_gravity="center_horizontal|top"
+        android:clickable="true"
+        />
+
+</FrameLayout>

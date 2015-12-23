@@ -5,7 +5,6 @@ import java.util.Map;
 
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Color;
 import android.util.AttributeSet;
 import android.widget.TableLayout;
 import android.widget.TableRow;
@@ -13,18 +12,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.fringefy.urbo.DebugListener;
+import com.fringefy.urbo.app.R;
 
 /**
  * The debug view can display various information. Entry points are the setField method
  * that displays data in a table and toast which makes an Android toast
  */
 public class DebugView extends TableLayout implements DebugListener {
-
-// Constants
-
-	private static final int iTextColor = Color.WHITE;
-	private static final int iBackColor = Color.parseColor("#AA000000");
-
 
 // Members
 
@@ -45,7 +39,6 @@ public class DebugView extends TableLayout implements DebugListener {
 
 	private void init() {
 		mapFields = new HashMap<String, TextView>();
-		setBackgroundColor(iBackColor);
 	}
 
 
@@ -69,17 +62,14 @@ public class DebugView extends TableLayout implements DebugListener {
 			public void run() {
 				TextView txtField = mapFields.get(sId);
 				if (txtField == null) {
+					TableRow tr = (TableRow)((Activity) getContext()).getLayoutInflater()
+							.inflate(R.layout.debugview_row, DebugView.this, false);
 
-					txtField = new TextView(getContext());
-					txtField.setTextColor(iTextColor);
+					txtField = (TextView) tr.getChildAt(1);
 					mapFields.put(sId, txtField);
 
-					TextView txtLabel = new TextView(getContext());
-					txtLabel.setTextColor(iTextColor);
+					TextView txtLabel = (TextView) tr.getChildAt(0);
 					txtLabel.setText(sId + ": ");
-					TableRow tr = new TableRow(getContext());
-					tr.addView(txtLabel);
-					tr.addView(txtField);
 
 					addView(tr);
 				}

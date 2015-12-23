@@ -3,6 +3,34 @@
 //
 //****************************************************************************************
 
+def versionMajor = 1
+def versionMid   = 0
+def versionMinor = 3
+def dailyBuild   = 1
+
+def getDateAsString() {
+
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        executable = 'git'
+        args = ['show', '-s', '--format="%cd"', '--date=short']
+        standardOutput = stdout;
+    }
+    def (Y, M, D) = "${stdout}".tokenize('-"\n');
+    return "${D}/${M}/${Y}";
+}
+
+def getDateAsInt() {
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        executable = 'git'
+        args = ['show', '-s', '--format="%cd"', '--date=short']
+        standardOutput = stdout;
+    }
+    def (Y, M, D) = "${stdout}".tokenize('-"\n');
+    return "${Y}${M}${D}".toInteger()-20000000
+}
+
 // check if OpenCV has been downloaded locally
 
 Properties properties = new Properties()
@@ -27,18 +55,23 @@ model {
 
     android {
         compileSdkVersion = 21
-        buildToolsVersion = "23.0.0 rc3"
+        buildToolsVersion = "23.0.2"
         defaultConfig.with {
             applicationId = 'com.fringefy.urbo.app'
             minSdkVersion.apiLevel = 17
             targetSdkVersion.apiLevel = 21
-            versionCode = 1
-            versionName = "1.0"
+            versionCode = "${versionMajor}${versionMid}${getDateAsInt()}${dailyBuild}".toInteger()
+            versionName = "${versionMajor}.${versionMid}.${versionMinor} ${getDateAsString()} #${dailyBuild}"
+        }
+        buildTypes.with {
+            debug {
+                versionNameSuffix = " DEBUG"
+            }
         }
     }
 }
 
-// static lib is built with ndk-build, only if OpenCV 3.0 has been donwnloaded locally
+// static lib is built with ndk-build, only if OpenCV 3.0 has been downloaded locally
 
 def appAbi = "armeabi-v7a"
 def staticLibPath = "../urbo/obj/local/$appAbi/libPexeso.a"

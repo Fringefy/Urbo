@@ -1,13 +1,10 @@
 package com.fringefy.urbo;
 
-import android.location.Location;
 import android.support.annotation.NonNull;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Represents a POI. This class can be serialized with GSON to comply with the ODIE
@@ -18,19 +15,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Poi {
 
-	public static String tabpageUrl = "http://tabs.alicewho.com/";
-
+	// TODO: instead, check that getId() == null
 	private transient volatile boolean bLocked = true;
-	private transient long nativePtr;
 
 	/** global POI id, can be null in case of a client-only POI */
 	private String _id;
-	void setId(String sId) { _id = sId; clientId = null; }
 
 	/** unique client ID */
 	private String clientId;
 	public boolean isClientOnly() { return _id == null; }
-	static AtomicInteger iNextId = new AtomicInteger(1); // the next available client ID
 
 	/** returns the global ID, or if it isn't present - the client ID */
 	public String getId() { return isClientOnly() ? clientId : _id; }
@@ -48,14 +41,6 @@ public class Poi {
 
  	final double[] loc = new double[] { Double.NaN, Double.NaN };
 	// TODO: maybe keep accuracy, too?
-
-	public Location getLocation() {
-		Location location = new Location("Urbo");
-		location.setLatitude(loc[Constants.LAT]);
-		location.setLongitude(loc[Constants.LONG]);
-
-		return location;
-	}
 
 	/** POI category (type) */
 	public enum Type {
@@ -110,26 +95,31 @@ public class Poi {
 		return this;
 	}
 
-	private String irmaImageUrl;
-	public String getImageUrl() {
-		return irmaImageUrl;
+	String imgFileName;
+
+	/**
+	 * A visual urnban signature
+	 */
+	private static class Usig {
+
+// Inner Types
+
+		private static class Una {
+			double azimuth;
+			String data;
+
+			Una(double camAzimuth, String sUna) {
+				azimuth = camAzimuth;
+				data = sUna;
+			}
+		}
+
+// Fields
+
+		Una[] unas;
 	}
 
-	/** Urban signature (USIG) */
 	Usig usig;
-
-	void addClientGeneratedUna(float azimuth, String clientGeneratedUna) {
-		if (usig == null) {
-			usig = new Usig();
-		}
-		if (usig.unas == null) {
-			usig.unas = new Usig.Una[1];
-		}
-		else {
-			usig.unas = Arrays.copyOf(usig.unas, usig.unas.length + 1);
-		}
-		usig.unas[usig.unas.length - 1] = new Usig.Una(azimuth, clientGeneratedUna);
-	}
 
 	/** Website */
 	private String website;
@@ -219,11 +209,6 @@ public class Poi {
 					// TODO: error
 					return "https://www.google.com/search?q=" + name;
 				}
-			case Alice:
-				if (isClientOnly()) {
-					return null;
-				}
-				return tabpageUrl + getId();
 
 			case Home:
 				return homeUrl;
@@ -274,7 +259,6 @@ public class Poi {
 
 	public Poi(@NonNull String sName) {
 		this.bLocked = false;
-		this.clientId = Integer.toString(iNextId.getAndIncrement());
 		this.timestamp = new Date();
 		this.name = sName;
 	}
@@ -288,9 +272,12 @@ public class Poi {
 
 	@Override
 	public boolean equals(Object o) {
-		if (o instanceof Poi){
+		if (o instanceof Poi) {
 			Poi poiOther = (Poi)o;
 			return getId().equals(poiOther.getId());
+		}
+		else if (o instanceof String) {
+			return getId().equals(o);
 		}
 		return false;
 	}
@@ -302,12 +289,8 @@ public class Poi {
 		bLocked = true;
 	}
 
-	boolean isLocked() {
-		return bLocked;
-	}
-
 	private void lockCheck() {
 		if (bLocked)
-			throw new UnsupportedOperationException("Cannot modify an already registered POI");
+			throw new IllegalStateException("Cannot modify an already registered POI");
 	}
 }

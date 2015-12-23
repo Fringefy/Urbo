@@ -8,8 +8,8 @@ public class Snapshot extends RecoEvent {
 
 	private static final String TAG = "Snapshot";
 
-	private Poi poi;
-	private Urbo.PoiVote[] votes = new Urbo.PoiVote[0];
+	transient private Poi poi;
+	transient private Urbo.PoiVote[] votes = new Urbo.PoiVote[0];
 
 	Snapshot(@NonNull Location location, float fPitch, float fAzimuth,
 	         @Nullable Poi machineSelectedPoi, @Nullable String sClientUna) {
@@ -23,10 +23,5 @@ public class Snapshot extends RecoEvent {
 
 	public Urbo.PoiVote[] getVotes() {
 		return votes;
-	}
-
-	void setPoi(@NonNull Poi poi) {
-		setUserSelectedPoi(poi);
-		this.poi = poi;
 	}
 }

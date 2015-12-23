@@ -16,13 +16,12 @@ import com.google.android.gms.location.FusedLocationProviderApi;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.gson.Gson;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Map;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -38,26 +37,20 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		// fastest update frequency (milliseconds), see location services docs
 		private static final int FASTEST_INTERVAL = 1000;
 
-		private String sEndpoint = "https://qaodie.fringefy.com/odie";
+		private String sEndpoint = "https://odie.fringefy.com/odie";
+		private String sApiKey;
 		private static final int MAX_ODIE_CONNECTIONS = 2;
 
 		File fImgDir;
 	}
-
-	public interface OdieUpdateObserver {
-		void onOdieResponse(OdieUpdate odieUpdate);
-	}
-
 
 // Private Fields
 
 	static private Urbo urbo = null;
 	Params params;
 
-	private HashSet<OdieUpdateObserver> odieUpdateObservers = new HashSet<>();
-
-    // TODO: [AC] initialize these in the constructor
-    private String sDeviceId, sCountryCode;
+    final String sDeviceId;
+	private String sCountryCode; // TODO: it's not initialized today
 
 	private Odie odie;
 	private OdieBlob odieBlob;
@@ -79,7 +72,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		params = new Params();
 		params.fImgDir = context.getCacheDir();
 
-		sDeviceId = Build.SERIAL;
+		sDeviceId = getDeviceId();
 
 		locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
@@ -101,10 +94,26 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		// connect to the Google API
 		googleApiClient.connect();
 
-		// setup ODIE
-		odie = OdieFactory.getInstance(params.sEndpoint, "RnNmIgxtZzcajIZww7NlKnAeYwTjOq9xp9Xu7YkS");
 		odieBlob = new OdieBlob();
 		xsIo = Executors.newFixedThreadPool(Params.MAX_ODIE_CONNECTIONS);
+	}
+
+	public Urbo setApiKey(String sApiKey) {
+		params.sApiKey = sApiKey;
+		if (params.sEndpoint != null && params.sApiKey != null) {
+			odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
+			Pexeso.forceCacheRefresh();
+		}
+		return this;
+	}
+
+	public Urbo setEndpoint(String sEndpoint) {
+		params.sEndpoint = sEndpoint;
+		if (params.sEndpoint != null && params.sApiKey != null) {
+			odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
+			Pexeso.forceCacheRefresh();
+		}
+		return this;
 	}
 
 	/**
@@ -148,10 +157,12 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		if (!googleApiClient.isConnected()) {
 			googleApiClient.connect();
 		}
+		Pexeso.restartLiveFeed();	// TODO: [SY] should be called by camera
 	}
 
 	public void stop() {
 		locationApi.removeLocationUpdates(googleApiClient, this);
+		Pexeso.stopLiveFeed();
 	}
 
 	public Urbo setListener(Listener listener) {
@@ -164,16 +175,11 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		return this;
 	}
 
-	public Urbo addOdieUpdateObserver(OdieUpdateObserver odieUpdateObserver) {
-		odieUpdateObservers.add(odieUpdateObserver);
-		return this;
-	}
-
 	/**
 	 * @return List of POIs (points of interest) that are currently in cache
 	 */
-	public Poi[] getPoiShortlist(boolean bSort) {
-		return Pexeso.getPoiShortlist(bSort);
+	public Poi[] getPoiShortlist() {
+		return Pexeso.getPoiShortlist();
 	}
 
 	public void tagSnapshot(@NonNull Snapshot snapshot, @NonNull Poi poi) {
@@ -182,6 +188,10 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	public void confirmRecognition(long lSnapshotId) {
 		Pexeso.confirmRecognition(lSnapshotId);
+	}
+
+	public void rejectRecognition(long lSnapshotId) {
+		Pexeso.rejectRecognition(lSnapshotId);
 	}
 
 	public boolean getSnapshot(long lSnapshotId) {
@@ -199,13 +209,6 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	public void forceCacheRefresh() {
 		Pexeso.forceCacheRefresh();
-	}
-
-	/**
-	 * @return Gson that can be used to backup and restore local RecoEvent history
-	 */
-	public Gson getGson() {
-		return OdieFactory.getGson();
 	}
 
 // Events
@@ -260,11 +263,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 					// TODO: keep locally to retry later
 					return;
 				}
-				for (Map.Entry<String, String> entry : putResponse.pois.syncList.entrySet()) {
-					if (snapshot.getPoi().getId().equals(entry.getKey())) {
-						snapshot.getPoi().setId(entry.getValue());
-					}
-				}
+				Pexeso.poiCacheUpdateCallback(putResponse);
 			}
 		});
 	}
@@ -278,7 +277,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 				if (hitMeAgainIn > 0) {
 					SystemClock.sleep(hitMeAgainIn * 1000);
 				}
-				OdieUpdate odieResponse = null;
+				Odie.OdieUpdate odieResponse = null;
 				try {
 					odieResponse = odie.getPois(location.getLatitude(),
 							location.getLongitude(), location.getAccuracy(),
@@ -291,9 +290,6 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 				if (odieResponse == null) {
 					Log.e(TAG, "odieResponse[" + iRequestId + "] == null");
 					Pexeso.poiCacheRequestCallback(iRequestId, location, null);
-					for (OdieUpdateObserver observer : odieUpdateObservers) {
-						observer.onOdieResponse(odieResponse);
-					}
 					return;
 				}
 
@@ -307,12 +303,6 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 				Log.i(TAG, "odieResponse[" + iRequestId + "] gives " + odieResponse.pois.length);
 				if (Pexeso.poiCacheRequestCallback(iRequestId, location, odieResponse.pois)) {
-					if (odieResponse.tabpageUrl != null) {
-						Poi.tabpageUrl = odieResponse.tabpageUrl;
-					}
-					for (OdieUpdateObserver observer : odieUpdateObservers) {
-						observer.onOdieResponse(odieResponse);
-					}
 					odieBlob.setBucket(odieResponse.s3Bucket, odieResponse.s3Folder);
 				}
 			}
@@ -363,6 +353,19 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	public Location getCurrentLocation() {
 		return Pexeso.getCurrentLocation();
+	}
+
+	private static String getDeviceId() {
+		String key;
+		try {
+			key = new BigInteger(1, MessageDigest.getInstance("MD5")
+					.digest(Build.SERIAL.getBytes())).toString(16);
+		}
+		catch (NoSuchAlgorithmException e) {
+			Log.w("RecoEvent", "Could not hash the key", e);
+			key = Build.SERIAL + Math.random();
+		}
+		return key.substring(0, 8);
 	}
 
 }
