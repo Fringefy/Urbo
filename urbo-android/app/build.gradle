@@ -3,9 +3,9 @@
 //
 //****************************************************************************************
 
-def versionMajor = 1
-def versionMid   = 0
-def versionMinor = 3
+def versionMajor = 2
+def versionMid   = 3
+def versionMinor = 0
 def dailyBuild   = 1
 
 def getDateAsString() {
@@ -43,7 +43,6 @@ def OpenCV_include = properties.getProperty('OpenCV.dir') + '/sdk/native/jni/inc
 apply plugin: 'com.android.model.application'
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
     compile project(':urbo')
 }
 
@@ -58,7 +57,7 @@ model {
         buildToolsVersion = "23.0.2"
         defaultConfig.with {
             applicationId = 'com.fringefy.urbo.app'
-            minSdkVersion.apiLevel = 17
+            minSdkVersion.apiLevel = 16
             targetSdkVersion.apiLevel = 21
             versionCode = "${versionMajor}${versionMid}${getDateAsInt()}${dailyBuild}".toInteger()
             versionName = "${versionMajor}.${versionMid}.${versionMinor} ${getDateAsString()} #${dailyBuild}"

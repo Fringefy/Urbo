@@ -1,5 +1,6 @@
 package com.fringefy.urbo;
 
+import android.support.annotation.Nullable;
 import android.util.Log;
 import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.MediaType;
@@ -40,14 +41,20 @@ class OdieBlob {
 	 * @param fImg The image to upload
 	 * @return return true if succeeded to upload
 	 */
-	synchronized boolean uploadImage(File fImg) {
+	synchronized boolean uploadImage(@Nullable File fImg) {
+		if (fImg == null) {
+			Log.e(TAG, "Failed to upload (null)" +
+					" to " + toStringForLog());
+			return false;
+		}
 		try {
-			Log.d(TAG, "Uploading " + fImg.getPath() + " to " + String.format(serverAdress, fImg.getName()));
+			Log.d(TAG, "Uploading " + fImg.getPath() + " to " +
+					String.format(serverAdress, fImg.getName()));
 			uploadInternal(fImg);
 			return fImg.delete();
 		}
 		catch (Exception e) {
-            Log.e(TAG, "Failed to upload " + fImg.getPath() +
+			Log.e(TAG, "Failed to upload " + fImg.getPath() +
                     " to " + toStringForLog(), e);
 		}
 		return false;

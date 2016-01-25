@@ -2,8 +2,8 @@
 
 // raw input types
 enum InputType {
-    NV12,
-    BGR
+	NV21,
+	BGR
 };
 
 #ifndef INTERFACE_ONLY

@@ -18,6 +18,7 @@
 using namespace std::chrono;
 
 enum StateId {
+	COLD_START = -1,
 	SEARCH = 0,
 	RECOGNITION = 1,
 	NO_RECOGNITION = 2,
@@ -26,10 +27,11 @@ enum StateId {
 	MOVING = 5
 };
 
-enum UserAction {
-	TAG
+struct TagResult {
+	IPoi* pPoi;
+	bool bIsIndex;
+	bool bUserFeedback;
 };
-
 
 class IBufferManager;
 
@@ -44,62 +46,50 @@ public:
 	virtual ~IPexeso() {};
 
 // Inner Types
+
+	typedef steady_clock::time_point Timestamp;
 	typedef size_t SnapshotId;
-	const SnapshotId INVALID_SNAPSHOT_ID = -1;
+	const static SnapshotId INVALID_SNAPSHOT_ID = (const SnapshotId) -1;
 
 	struct IState {
-		steady_clock::time_point t;
+		Timestamp t;
 		StateId id;
-		IPoi* pPoi;
+		const IPoi* pPoi;
 		SnapshotId snapshotId;
 
 		IState() = default;
-		IState(StateId id, SnapshotId snapshotId, IPoi* pPoi = nullptr) :
-			id(id),
-			pPoi(pPoi),
-			snapshotId(snapshotId)
+		IState(StateId id, const IPoi* pPoi, SnapshotId snapshotId) :
+				id(id),
+				pPoi(pPoi),
+				snapshotId(snapshotId)
 		{
 			t = steady_clock::now();
 		}
 	};
 
-	struct IVote {
-		IVote(IPoi* poi, float fScore):
-			poi(poi), fScore(fScore)
-		{};
-
-		IPoi* poi;
-		float fScore;
-	};
-
 	struct ISnapshot {
-		steady_clock::time_point t;
+		Timestamp timestamp;
 		SensorState sensorState;
-		ImgBuffer imgBuf;
-
-		virtual string getUna() = 0;
-		virtual IPoi* getMachineSelectedPoi() = 0;
-		virtual vector<IVote> getVotes() = 0;
-
-		virtual void unlock() = 0;
+		string sUna;
+		vector<IVote> vVotes;
+		IPoi machineSelectedPoi;
 	};
-	
-	typedef std::function<void(int iRequestId, 
+
+	typedef function<void(int iRequestId,
 		const Location& location)> PoiCacheRequestListener;
 
-	typedef std::function<bool(IPexeso::IState& state)> StateChangeListener;
-	typedef std::function<void(IPexeso::ISnapshot&)> SnapshotListener;
+	typedef function<bool(const IPexeso::IState& state)> StateChangeListener;
+	typedef function<void(const IPexeso::ISnapshot&, ImgBuffer&, bool)> SnapshotListener;
 
 	struct Params : ICortex::Params {
 		ErrorListener errorListener;
 		PoiCacheRequestListener poiCacheRequestListener;
-		IBufferManager* pBufferManager;
 		StateChangeListener stateChangeListener;
 		SnapshotListener snapshotListener;
 	};
 
-	
-// Factory 
+
+// Factory
 
 	/// <summary> Creates a pexeso instance. </summary>
 	/// <param name="params"> Pexeso interface public parameters. </param>
@@ -112,38 +102,39 @@ public:
 
 	virtual bool poiCacheRequestCallback(int iRequestId, const Location& location,
 		IPoiIterator& poiIterator) = 0;
+	virtual void updatePoiId(IPoi::ClientId clientId, string serverId) = 0;
 
-	virtual void addClientGeneratedPoi(IPoi& poi, IUnaIterator& unaIterator) = 0;
-
-	virtual void initLiveFeed() = 0;
-
+	virtual void initLiveFeed(IBufferManager* pBufManager) = 0;
 	virtual void stopLiveFeed() = 0;
 
-	virtual bool takeSnapshot() = 0;
+	virtual TagResult tagSnapshot(const ISnapshot& snapshot, const IPoi& poi) = 0;
 
+	virtual bool takeSnapshot() = 0;
 	virtual bool getSnapshot(SnapshotId snapshotId) = 0;
+	virtual bool confirmRecognition(SnapshotId snapshotId) = 0;
+	virtual bool rejectRecognition(SnapshotId snapshotId) = 0;
 
 	virtual void forceCacheRefresh() = 0;
+
+	virtual Location getCurrentLocation() = 0;
+	virtual PoiShortlist getPoiShortlist(bool bSort = false) = 0;
 
 // Sensor Inputs
 
 	virtual void pushFrame(ImgBuffer imgBuf) = 0;
-
 	virtual void pushHeading(float fHeading) = 0;
-	
 	virtual void pushPitch(float fPitch) = 0;
-
 	virtual void pushLocation(Location location) = 0;
-
-	//virtual void pushUserFeedback(UserAction& action, IRecognitionEvent* pRe,
-	//	int iUserSelectedPoiId = NULL_POI_ID) = 0;
 };
+
 
 class IBufferManager {
 public:
 	int w, h;
+	int rotation = 0;
 
 	virtual void registerThread() = 0;
+	virtual void closeThread() = 0;
 	virtual char* open(ImgBuffer imgBuf) = 0;
 	virtual void close(ImgBuffer imgBuf, char*& pBuf) = 0;
 	virtual ImgBuffer newBuffer() = 0;

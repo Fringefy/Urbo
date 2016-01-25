@@ -1,4 +1,5 @@
 #import "AppDelegate.h"
+#import "Urbo.h"
 
 @interface AppDelegate ()
 
@@ -9,8 +10,9 @@
 
 - (BOOL)application:(UIApplication *)application
 didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-
-	return YES;
+    [Urbo startWithApiKey:@"RnNmIgxtZzcajIZww7NlKnAeYwTjOq9xp9Xu7YkS"];
+    [Urbo getInstance].baseUrl = @"https://odie.fringefy.com/";
+    return YES;
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {

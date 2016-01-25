@@ -6,6 +6,7 @@
 #endif
 
 @class POI;
+@class Snapshot;
 
 @protocol PexesoDelegate;
 
@@ -18,33 +19,37 @@
 - (void) pushLocation:(CLLocation*) location;
 - (void) pushHeading:(float) heading;
 - (void) poiCacheRequestCallback:(int) requestId
-						location:(CLLocation *) location
-							pois:(NSArray*) poisList;
+                        location:(CLLocation *) location
+                            pois:(NSArray*) poisList;
 - (void) stopLiveFeed;
+- (BOOL) tagSnapshot:(Snapshot *)oSnap poi:(POI *)oPoi;
+- (NSArray *) getPoiShortlist;
+- (BOOL) confirmRecognition:(long) snapshotId;
+- (BOOL) rejectRecognition:(long) snapshotId;
+- (BOOL) getSnapshot:(long) snapshotId;
+- (BOOL) takeSnapshot;
+- (void) forceCacheRefresh;
+- (void) poiCacheUpdateCallback:(NSDictionary *)response;
+- (void) restartLiveFeed;
+
+typedef enum StateId StateId;
 
 typedef enum {
-	STATE_SEARCH = 0,
-	STATE_RECOGNITION = 1,
-	STATE_NO_RECOGNITION = 2,
-	STATE_NON_INDEXABLE = 3,
-	STATE_BAD_ORIENTATION = 4,
-	STATE_MOVING = 5
-} State;
-
-typedef enum {
-	CODE_DBG = 0,
-	CODE_INFORMATION = 1,
-	CODE_WARNING = 2,
-	CODE_ERROR = 3,
-	CODE_MAX_SEVERITY = 4
+    CODE_DBG = 0,
+    CODE_INFORMATION = 1,
+    CODE_WARNING = 2,
+    CODE_ERROR = 3,
+    CODE_MAX_SEVERITY = 4
 } SeverityCode;
 
 @end
 
 @protocol PexesoDelegate <NSObject>
 
-- (void) pexesoDidGetError:(SeverityCode) errorCode;
+- (void) pexesoDidGetError:(SeverityCode) errorCode message:(NSString *) message;
 - (void) pexesoDidRequestListener:(int) requestId withLocation:(CLLocation *) location;
-- (void) pexesoDidChangeState:(State) state withPoi:(POI *) poi;
+- (void) pexesoDidChangeState:(StateId)state withPoi:(POI *)poi andSnapshotId:(int) snapshotId;
+- (void) pexesoOnSnapshot:(Snapshot *) snapshot;
+- (void) pexesoOnRecognition:(Snapshot *) snapshot;
 
 @end

@@ -19,10 +19,6 @@ class RecoEvent {
 
 	/** the client's timestamp */
 	private final Date clientTimestamp;
-	public long getTime() {
-		return clientTimestamp.getTime();
-	}
-
 	private final String machineSelectedPoi;
 	public String getMachineSelectedPoiId() {
 		return machineSelectedPoi;
@@ -35,12 +31,18 @@ class RecoEvent {
 	/** client location, accuracy, and camera azimuth */
 	private final double[] loc = new double[] { Double.NaN, Double.NaN};
 	private double locAccuracy;
-	public double getCamAzimuth() { return camAzimuth; }
+	public Location getLocation() {
+		Location location = new Location(imgFileName);
+		location.setAccuracy((float)locAccuracy);
+		location.setLatitude(loc[Constants.LAT]);
+		location.setLongitude(loc[Constants.LONG]);
+		location.setTime(clientTimestamp.getTime());
+		// TODO: consider setting bearing, speed, altitude
+		return location;
+	}
 
-	private float pitch, camAzimuth;
-	private final String imgFileName;
-
-	public String getImgFileName() { return imgFileName; }
+	float pitch, camAzimuth, velocity;
+	final String imgFileName;
 
 	private String clientGeneratedUNA;
 	private boolean isIndex = false;
@@ -48,10 +50,11 @@ class RecoEvent {
 
 	private final String deviceID;
 
-	protected RecoEvent(@NonNull Location location, float fPitch, float fAzimuth,
-			  @Nullable Poi machineSelectedPoi, @Nullable String sClientUna) {
+	protected RecoEvent(@NonNull Location location,
+			float fPitch, float fAzimuth, float fVelocity,
+			@Nullable Poi machineSelectedPoi, @Nullable String sClientUna) {
 
-		deviceID = Urbo.getInstance(null).sDeviceId;
+		deviceID = Urbo.getInstance().sDeviceId;
 		clientTimestamp = new Date(); // TODO: should be based on frame arrival
 		imgFileName = deviceID + "." + clientTimestamp.getTime() + ".jpg";
 
@@ -61,6 +64,7 @@ class RecoEvent {
 
 		pitch = fPitch;
 		camAzimuth = fAzimuth;
+		velocity = fVelocity;
 
 		if (machineSelectedPoi == null) {
 			this.machineSelectedPoi = null;

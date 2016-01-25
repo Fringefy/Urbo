@@ -7,6 +7,7 @@
 @interface POI : JSONObject 
 
 @property (nonatomic, strong) NSString *poiId;
+@property (nonatomic, strong) NSString *clientId;
 @property (nonatomic, strong) NSString *address;
 @property (nonatomic, strong) NSString *poiDescription;
 @property (nonatomic, strong) NSString *homeUrl;
@@ -23,7 +24,6 @@
 @property (nonatomic, strong) NSString *locality;
 @property (nonatomic, strong) NSString *name;
 @property (nonatomic, strong) NSNumber *type;
-@property (nonatomic) BOOL isRecognised;
 @property (nonatomic) BOOL isNew;
 @property (nonatomic) int distance;
 @property (nonatomic) double score;
@@ -52,5 +52,7 @@
 
 + (POI*) poiWithJSON:(id)JSON;
 - (NSDictionary *)dictionaryRepresentation;
+- (NSString *) getId;
+- (BOOL) isClientOnly;
 
 @end

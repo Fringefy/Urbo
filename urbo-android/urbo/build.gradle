@@ -47,17 +47,17 @@ model {
 
     android {
         compileSdkVersion = 21
-        buildToolsVersion = "23.0.0 rc3"
+        buildToolsVersion = "23.0.2"
         defaultConfig.with {
-            minSdkVersion.apiLevel = 17
+            applicationId = 'com.fringefy.urbo'
+            minSdkVersion.apiLevel = 16
             targetSdkVersion.apiLevel = 21
         }
     }
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile 'com.google.android.gms:play-services-location:7.8.0'
+    compile 'com.google.android.gms:play-services-location:8.4.0'
     compile 'com.squareup.retrofit:retrofit:1.9.0'
     compile 'com.squareup.okhttp:okhttp:2.5.0'
     compile 'com.squareup.okio:okio:1.4.0'

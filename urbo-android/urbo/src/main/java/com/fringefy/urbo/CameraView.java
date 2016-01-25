@@ -32,7 +32,6 @@ public class CameraView extends SurfaceView
 
 // Members
 
-	private Urbo urbo;
 	private HandlerThread htCam;
 	private Handler hCam;
 	private boolean bCamInitialized;
@@ -68,8 +67,6 @@ public class CameraView extends SurfaceView
 		if (isInEditMode()) {
 			return;
 		}
-
-		urbo = Urbo.getInstance(getContext());
 
 		if (getContext().getResources().getConfiguration().orientation ==
 				Configuration.ORIENTATION_LANDSCAPE) {
@@ -136,7 +133,7 @@ public class CameraView extends SurfaceView
 		if (bLive) {
 			Log.d(TAG, "bLive = true");
 			rotationSensorListener.unFreeze();
-			urbo.start();
+			Urbo.getInstance().start();
 			return false;
 		}
 
@@ -144,7 +141,7 @@ public class CameraView extends SurfaceView
 		camera.startPreview();
 
 		rotationSensorListener.unFreeze();
-		urbo.start();
+		Urbo.getInstance().start();
 
 		bLive = true;
 		return true;
@@ -164,9 +161,10 @@ public class CameraView extends SurfaceView
 				public void run() {
 					try {
 						camera = Camera.open(iCamId);
+						Log.i(TAG, "Camera(" + iCamId + ") opened");
 					}
 					catch (Exception e) {
-						urbo.onError(TAG, "Failed to open camera " + iCamId, e);
+						Urbo.getInstance().onError(TAG, "Failed to open camera " + iCamId, e);
 					}
 				}
 			});
@@ -202,6 +200,7 @@ public class CameraView extends SurfaceView
 
 			if (camera != null) {
 				camera.release();
+				Log.i(TAG, "Camera(" + iCamId + ") released");
 				camera = null;
 				bCamInitialized = false;
 			}
@@ -296,7 +295,7 @@ public class CameraView extends SurfaceView
 			camera.setPreviewDisplay(getHolder());
 
 		} catch (Exception e) {
-			urbo.onError(TAG, "Failed to finalize camera setup", e);
+			Urbo.getInstance().onError(TAG, "Failed to finalize camera setup", e);
 		}
 	}
 

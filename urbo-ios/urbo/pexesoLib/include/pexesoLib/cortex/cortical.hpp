@@ -94,14 +94,14 @@ public:
 struct BaseUNA {
 public:
 	enum Status {
-		OK,
-		NON_INDEXABLE
+		UNA_OK,
+		UNA_NON_INDEXABLE
 	} status;
 };
 
 
 
-/// <summary> noramlizes a gray scale image to mean 0 and stddev 1. </summary>
+/// <summary> normalizes a gray scale image to mean 0 and stddev 1. </summary>
 /// <param name="imIn"> [in] Input image. </param>
 /// <param name="imOut"> [out] Output image (can be = imIn). </param>
 inline void normalizeMeanStd(Mat& imIn, Mat& imOut)
@@ -323,7 +323,7 @@ inline size_t writeFloat(const float_& f, float_ fMin, float_ fMax, uchar* pc)
 /// <param name="f"> [out] The result. </param>
 /// <returns> How many bytes were read. </returns>
 template<size_t nBytes, typename float_>
-inline size_t readFloat(uchar* pc, float_ fMin, float_ fMax, float_& f)
+inline size_t readFloat(const uchar* pc, float_ fMin, float_ fMax, float_& f)
 {
 	// deserialize the int
 	unsigned int n;

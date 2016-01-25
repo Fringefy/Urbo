@@ -19,6 +19,7 @@ import com.google.android.gms.location.LocationServices;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -30,47 +31,94 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 // Inner Types
 
-	static class Params {
+	public static class Params {
 		// location update frequency (milliseconds), see location services docs
 		private static final int UPDATE_INTERVAL = 5000;
 
 		// fastest update frequency (milliseconds), see location services docs
 		private static final int FASTEST_INTERVAL = 1000;
 
-		private String sEndpoint = "https://odie.fringefy.com/odie";
-		private String sApiKey;
+		public String sEndpoint = "https://odie.fringefy.com/odie";
+		public String sApiKey;
 		private static final int MAX_ODIE_CONNECTIONS = 2;
 
+		boolean bIdentify = true;
 		File fImgDir;
+
+		// constructor should at least provide the ApiKey
+		public Params(String sApiKey) {
+			this.sApiKey = sApiKey;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (other == null) {
+				return false;
+			}
+			if (other instanceof Params) {
+				return equals((Params) other);
+			}
+			return false;
+		}
+
+		private boolean equals(Params other) {
+			if (other.bIdentify != bIdentify) {
+				return false;
+			}
+			if (other.sEndpoint == null || !other.sEndpoint.equals(sEndpoint)) {
+				return false;
+			}
+			if (sApiKey != null) {
+				if (other.sApiKey == null) {
+					return false;
+				}
+				else if (!other.sApiKey.equals(sApiKey)) {
+					return false;
+				}
+			}
+			else {
+				if (other.sApiKey != null) {
+					return false;
+				}
+			}
+			if (other.fImgDir != null && !other.fImgDir.equals(fImgDir)) {
+				return false;
+			}
+			return true;
+		}
 	}
 
 // Private Fields
 
 	static private Urbo urbo = null;
-	Params params;
+	final Params params;
 
     final String sDeviceId;
 	private String sCountryCode; // TODO: it's not initialized today
 
 	private Odie odie;
-	private OdieBlob odieBlob;
-	private ExecutorService xsIo; // TODO: shift executor to C++
+	private final OdieBlob odieBlob;
+	private final ExecutorService xsIo; // TODO: shift executor to C++
 
-	private LocationManager locationManager;
-	private GoogleApiClient googleApiClient;
-	private FusedLocationProviderApi locationApi;
-	private LocationRequest locationRequest;
+	private final LocationManager locationManager;
+	private final GoogleApiClient googleApiClient;
+	private final FusedLocationProviderApi locationApi;
+	private final LocationRequest locationRequest;
 	private DebugListener debugListener;
 
 
 // Construction
 
-    // bind hardware
-	private Urbo(@NonNull Context context) {
-		Pexeso.init(null, this);
+	private Urbo(@NonNull Context context, @NonNull Params initParams) {
 
-		params = new Params();
-		params.fImgDir = context.getCacheDir();
+		params = initParams;
+		if (params.fImgDir == null) {
+			params.fImgDir = context.getExternalCacheDir();
+		}
+		if (params.fImgDir == null) {
+			params.fImgDir = context.getCacheDir();
+		}
+		removeOldImageFiles();
 
 		sDeviceId = getDeviceId();
 
@@ -96,41 +144,55 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 		odieBlob = new OdieBlob();
 		xsIo = Executors.newFixedThreadPool(Params.MAX_ODIE_CONNECTIONS);
+
+		Pexeso.init(null, this);
+
+		odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
+		urbo = this;
 	}
 
-	public Urbo setApiKey(String sApiKey) {
-		params.sApiKey = sApiKey;
-		if (params.sEndpoint != null && params.sApiKey != null) {
-			odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
-			Pexeso.forceCacheRefresh();
+	private void removeOldImageFiles() {
+		for (File oldImage: new File(params.fImgDir, "").
+				listFiles(new FilenameFilter() {
+					@Override
+					public boolean accept(File dir, String filename) {
+						return filename.endsWith(".jpg");
+					}
+				})) {
+			Log.w(TAG, "old file " + oldImage.getName() + " " + oldImage.length());
+			oldImage.delete();
 		}
-		return this;
-	}
-
-	public Urbo setEndpoint(String sEndpoint) {
-		params.sEndpoint = sEndpoint;
-		if (params.sEndpoint != null && params.sApiKey != null) {
-			odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
-			Pexeso.forceCacheRefresh();
-		}
-		return this;
 	}
 
 	/**
 	 * This method will create and load Urbo. <br>
 	 * @param context The context of application that will use Urbo.
-	 * @return Return initialized and ready Urbo.
+	 * @param initParams  May override some defaults. Note that *params.sApiKey* default is null.
 	 */
-	public static Urbo getInstance(@NonNull Context context) {
-		if (urbo != null) {
+	public static Urbo createInstance(Context context, Params initParams) {
+		if (context == null) {
+			throw new IllegalArgumentException("createInstance() requires context");
+		}
+		if (initParams == null) {
+			throw new IllegalArgumentException("createInstance() requires initParams");
+		}
+		if (urbo != null && urbo.params.equals(initParams)) {
 			return urbo;
 		}
-		return (urbo = new Urbo(context));
+		if (urbo != null) {
+			throw new IllegalStateException("Urbo instance already exists!");
+		}
+		return (urbo = new Urbo(context, initParams));
+	}
+
+	public static Urbo getInstance() {
+		return urbo;
 	}
 
 
 // Public Interface
 
+	public static final int STATE_COLD_START = -1;
 	public static final int STATE_SEARCH = 0;
 	public static final int STATE_RECOGNITION = 1;
 	public static final int STATE_NO_RECOGNITION = 2;
@@ -240,7 +302,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		xsIo.execute(new Runnable() {
 			@Override
 			public void run() {
-				odieBlob.uploadImage(new File(params.fImgDir, snapshot.getImgFileName()));
+				odieBlob.uploadImage(snapshot.getImgFile());
 				Odie.PutResponse putResponse = null;
 				try {
 					Odie.PutRequest putRequest = new Odie.PutRequest();
@@ -329,12 +391,12 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	// TODO: the method below should be implemented in C++
 	void onSnapshotImageReady(String imgFileName, YuvImage yuvImage) {
 		File imageFile = new File(params.fImgDir, imgFileName);
-		// TODO: if size of accumulated JPG files in cache exceeds the threshold, delete older ones
 		try {
 			FileOutputStream fos = new FileOutputStream(imageFile);
 			Rect rcImage = new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight());
 			yuvImage.compressToJpeg(rcImage, 90, fos);
 			fos.close();
+			Log.w(TAG, "new file " + imageFile.getPath() + " " + imageFile.length());
 		}
 		catch (Exception e) {
 			Log.e(TAG, "failed to write jpegBuffer", e);
@@ -343,10 +405,10 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	public boolean connectLocationService() {
 		boolean gps_enabled = false;
-		try{
+		try {
 			gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
 		}
-		catch(Exception ex){}
+		catch (Exception ex){}
 
 		return gps_enabled;
 	}

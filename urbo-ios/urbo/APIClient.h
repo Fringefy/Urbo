@@ -1,25 +1,24 @@
 #import "AFHTTPSessionManager.h"
-#import "AFHTTPRequestOperationManager.h"
 #import "AFNetworkActivityIndicatorManager.h"
 
-typedef void (^SuccessBlock)(AFHTTPRequestOperation *operation, id responseObject);
-typedef void (^FailureBlock)(AFHTTPRequestOperation *operation, NSError *error);
+typedef void (^SuccessBlock)(NSURLSessionTask *task, id responseObject);
+typedef void (^FailureBlock)(NSURLSessionTask *task, NSError *error);
 
-@interface APIClient : AFHTTPRequestOperationManager
+@interface APIClient : AFHTTPSessionManager
 
-@property (strong, nonatomic) AFHTTPRequestOperation *operation;
+@property (strong, nonatomic) NSURLSessionTask *task;
 
 + (instancetype)sharedClient;
 
 -(void)getPOIs:(NSNumber *)lng
-		   lat:(NSNumber *)lat
-	  deviceId:(NSString *)deviceId
-	  accuracy:(NSNumber *)accuracy
-	   success:(SuccessBlock)success
-	   failure:(FailureBlock)failure;
+           lat:(NSNumber *)lat
+      deviceId:(NSString *)deviceId
+      accuracy:(NSNumber *)accuracy
+       success:(SuccessBlock)success
+       failure:(FailureBlock)failure;
 
 -(void)sendPoisWithEvents:(NSDictionary *)poisWithEvents
-				  success:(SuccessBlock)success
-				  failure:(FailureBlock)failure;
+                  success:(SuccessBlock)success
+                  failure:(FailureBlock)failure;
 
 @end

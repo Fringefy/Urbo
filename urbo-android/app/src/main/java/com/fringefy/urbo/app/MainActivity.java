@@ -4,8 +4,6 @@ package com.fringefy.urbo.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -14,7 +12,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.animation.AlphaAnimation;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -26,32 +23,24 @@ import com.fringefy.urbo.Poi;
 import com.fringefy.urbo.Snapshot;
 import com.fringefy.urbo.Urbo;
 
-import java.io.File;
 
-
-public class MainActivity extends Activity implements Urbo.Listener, DebugListener, View.OnLongClickListener {
+public class MainActivity extends Activity implements Urbo.Listener {
 
 	private static final String TAG = "MainActivity";
-	public static final int DOBLECLICK_MILLIS = 900;
 
 // Members
 
-	private Urbo urbo;
-	private CameraView cameraView;
+	protected Urbo urbo;
+	protected CameraView cameraView;
 	private DebugListener debugListener;
 	private ImageView tagImageView;
 	private EditText poiNameView;
 	private PoiListFragment searchFragment = new PoiListFragment();
 
-	private Poi lastRecognizedPoi = null;
-	private long lastRecognizedSnapshotId = Urbo.SNAPSHOT_ID_INVALID;
-	private Snapshot snapshot = null;
+	protected Poi lastRecognizedPoi = null;
+	protected long lastRecognizedSnapshotId = Urbo.SNAPSHOT_ID_INVALID;
+	protected Snapshot snapshot = null;
 	private AlertDialog tagDialog;
-
-	private TextView recognizedView;
-	private TextView stateView;
-	private TextView scoreView;
-	private AlphaAnimation fadeoutAnimation;
 
 
 // Construction
@@ -60,37 +49,14 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		if (getResources().getConfiguration().orientation ==
-				Configuration.ORIENTATION_LANDSCAPE) {
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-			debugListener = this;
-		}
-		else {
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-		}
 		setContentView(R.layout.main_activity);
+
 		cameraView = (CameraView) findViewById(R.id.camera_view);
 		if (cameraView.isLive()) {
 			getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		}
 
-		if (debugListener == null) {
-			debugListener = (DebugListener) findViewById(R.id.debug_view);
-		}
-		else {
-			recognizedView = (TextView) findViewById(R.id.recognized);
-			recognizedView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
-			recognizedView.setAlpha(0f);
-			recognizedView.setOnLongClickListener(this);
-			stateView = (TextView) findViewById(R.id.state);
-			scoreView = (TextView) findViewById(R.id.score);
-			stateView.setText("");
-			scoreView.setText("");
-			fadeoutAnimation = new AlphaAnimation(1f, 0f);
-			fadeoutAnimation.setFillAfter(true);
-			fadeoutAnimation.setDuration(700);
-			fadeoutAnimation.setStartOffset(2000);
-		}
+		debugListener = (DebugListener) findViewById(R.id.debug_view);
 
 		View dialogView = getLayoutInflater().inflate(R.layout.tag_dialog, null);
 		tagDialog = new AlertDialog.Builder(MainActivity.this)
@@ -119,10 +85,8 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 		});
 		tagImageView = (ImageView) dialogView.findViewById(R.id.tag_image);
 
-		urbo = Urbo.getInstance(this)
-				.setApiKey(getString(R.string.urbo_apiKey))
-				.setListener(this)
-				.setDebugListener(debugListener);
+		urbo = Urbo.createInstance(this, new Urbo.Params(getString(R.string.urbo_apiKey)));
+		urbo.setListener(this).setDebugListener(debugListener);
 	}
 
 
@@ -132,18 +96,6 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.menu_main, menu);
 		return true;
-	}
-
-	@Override
-	public boolean onLongClick(View view) {
-		switch (view.getId()) {
-
-		case R.id.recognized:
-			urbo.confirmRecognition(lastRecognizedSnapshotId);
-			recognizedView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
-			return true;
-		}
-		return false;
 	}
 
 	public void onClick(View view) {
@@ -230,42 +182,11 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 			lastRecognizedPoi = poi;
 			lastRecognizedSnapshotId = lSnapshotId;
 		}
-
-		if (recognizedView != null) {
-			runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
-					if (iStateId == Urbo.STATE_RECOGNITION) {
-						recognizedView.clearAnimation();
-						recognizedView.setText(poi.getName());
-						recognizedView.setAlpha(1f);
-					}
-					else {
-						if (recognizedView.getAnimation() == null) {
-							recognizedView.startAnimation(fadeoutAnimation);
-						}
-					}
-				}
-			});
-		}
 	}
 
 	@Override
 	public void onSnapshot(Snapshot snapshot) {
-		if (snapshot.isTagged()) {
-			runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
-					recognizedView.clearAnimation();
-					recognizedView.setText("Thanks for sharing!");
-					recognizedView.setAlpha(1f);
-					recognizedView.startAnimation(fadeoutAnimation);
-				}
-			});
-			return;
-		}
 		this.snapshot = snapshot;
-
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
@@ -298,8 +219,8 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 
 	private void openTagDialog() {
 		poiNameView.setText(lastRecognizedPoi == null ? "" : lastRecognizedPoi.getName());
-		tagImageView.setImageURI(
-				Uri.fromFile(new File(getCacheDir(), snapshot.getImgFileName())));
+		tagImageView.setImageURI(Uri.fromFile(snapshot.getImgFile()));
+		tagImageView.setMinimumHeight(getWindow().getDecorView().getHeight()/2);
 		tagDialog.show();
 		tagDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(
 				new View.OnClickListener() {
@@ -308,14 +229,10 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 						confirmPoi();
 					}
 				});
-		tagDialog.getWindow().setLayout(
-				getWindow().getDecorView().getWidth() * 2 / 3,
-				getWindow().getDecorView().getHeight() * 2 / 3);
 
 		for (Urbo.PoiVote vote : snapshot.getVotes()) {
 			Log.d(TAG, vote.poi.getName() + "\t" + String.format("%.1f", vote.fVote));
 		}
-
 	}
 
 	private void showSearch() {
@@ -325,36 +242,5 @@ public class MainActivity extends Activity implements Urbo.Listener, DebugListen
 				.add(R.id.activity_main, searchFragment, "searchFragment")
 				.addToBackStack("searchFragment")
 				.commit();
-	}
-
-	@Override
-	public void toast(String sMsg) {
-	}
-
-	@Override
-	public void setField(final String sId, final String sVal) {
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (sId.equals("score")) {
-					scoreView.setText(sVal.replaceFirst("^k", ""));
-				}
-				else if (sId.equals("State")) {
-					stateView.setText(sVal);
-				}
-			}
-		});
-	}
-
-	@Override
-	public void removeField(String sId) {
-		if (sId.equals("score")) {
-			runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
-					scoreView.setText("");
-				}
-			});
-		}
 	}
 }

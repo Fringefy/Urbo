@@ -1,11 +1,11 @@
 package com.fringefy.urbo;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.Build;
 import android.util.Log;
 
 import java.util.Arrays;
@@ -20,19 +20,26 @@ class RotationSensorListener implements SensorEventListener {
 
 	private Sensor sensorRotationVec;
 	private Sensor sensorAccelerometer;
-	private float[] mGravity;
 	private Sensor sensorMagnetic;
-	private float[] mGeomagnetic;
-
 	private SensorManager sensorManager;
+
+	private final int iOrientation;
+
+	float[] faGravity = new float[]{0,0,0};
+	float[] faGeomagnetic = new float[]{0,0,0};
 
 	protected RotationSensorListener(Context context) {
 		sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
 		sensorRotationVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-		if (sensorRotationVec == null) {
+		sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+		if (sensorAccelerometer == null) {
 			sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-			sensorMagnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 		}
+		sensorMagnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		if (sensorMagnetic == null) {
+			faGeomagnetic = new float[]{-39.0625f, -19.0625f, 27.25f};
+		}
+		iOrientation = context.getResources().getConfiguration().orientation;
 	}
 
 	@Override
@@ -46,18 +53,15 @@ class RotationSensorListener implements SensorEventListener {
 			return;
 		}
 		else if (event.sensor.equals(sensorMagnetic)) {
-			mGeomagnetic = event.values;
+			faGeomagnetic = event.values;
 		}
 		else if (event.sensor.equals(sensorAccelerometer)) {
-			mGravity = event.values;
-			if (sensorMagnetic == null) {
-				mGeomagnetic = new float[]{-39.0625f, -19.0625f, 27.25f};
-			}
+			faGravity = event.values;
 		}
-		// TODO: may be necessary to improve buffering of raw sensor data
-		if (mGravity != null && mGeomagnetic != null) {
+
+		if (sensorRotationVec == null && faGravity != null && faGeomagnetic != null) {
 			float R[] = new float[DEFAULT_ROTATION_VECTOR_LENGTH];
-			if (SensorManager.getRotationMatrix(R, null, mGravity, mGeomagnetic)) {
+			if (SensorManager.getRotationMatrix(R, null, faGravity, faGeomagnetic)) {
 				onOrientationChanged(computeOrientation(R));
 			}
 		}
@@ -91,7 +95,8 @@ class RotationSensorListener implements SensorEventListener {
 				// see https://groups.google.com/d/msg/android-developers/U3N9eL5BcJk/X3RbVdy2rZMJ
 				if (afRotationVectorOrMatrix.length > SAMSUNG_ROTATION_VECTOR_LENGTH) {
 					nTrimRotationVector = SAMSUNG_ROTATION_VECTOR_LENGTH;
-					return computeOrientation(Arrays.copyOf(afRotationVectorOrMatrix, SAMSUNG_ROTATION_VECTOR_LENGTH));
+					return computeOrientation(Arrays.copyOf(
+							afRotationVectorOrMatrix, SAMSUNG_ROTATION_VECTOR_LENGTH));
 				}
 				else {
 					return new float[] { 0, -(float)Math.PI/2, 0 };
@@ -118,8 +123,7 @@ class RotationSensorListener implements SensorEventListener {
 			heading += 360;
 		}
 
-		if (Build.DISPLAY.contains("ORA-1")) {
-			// for Ora glasses:
+		if (iOrientation == Configuration.ORIENTATION_LANDSCAPE) {
 			// afOrientation[2] == -pi/2 --> straight
 			// afOrientation[2] == 0 --> down/flat
 			// afOrientation[1] == -pi --> up
@@ -139,18 +143,20 @@ class RotationSensorListener implements SensorEventListener {
 		Pexeso.pushHeading((float)heading);
 	}
 
-	public void freeze() {
+	protected void freeze() {
 		sensorManager.unregisterListener(this);
 	}
 
-	public void unFreeze() {
+	protected void unFreeze() {
 		if (sensorRotationVec != null) {
 			sensorManager.registerListener(this, sensorRotationVec,
 					SensorManager.SENSOR_DELAY_GAME);
 		}
-		else {
+		if (sensorAccelerometer != null) {
 			sensorManager.registerListener(this, sensorAccelerometer,
 					SensorManager.SENSOR_DELAY_GAME);
+		}
+		if (sensorMagnetic != null) {
 			sensorManager.registerListener(this, sensorMagnetic,
 					SensorManager.SENSOR_DELAY_GAME);
 		}

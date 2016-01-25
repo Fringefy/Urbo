@@ -13,7 +13,7 @@ public class ViewFinder extends View {
     //Constants
     public static final int iCOLOR = 0x4cffffff;
     private static final int iAIM_THICKNESS = 5;
-    private static final int iAIM_SIZE = 40;
+    private static final int iAIM_SIZE = 8; // % of width
 
     //members
     private Paint aimPaint;
@@ -39,11 +39,12 @@ public class ViewFinder extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         aimPath = new Path();
 
-        aimPath.moveTo(w/2- iAIM_SIZE, h/2);
-        aimPath.lineTo(w/2 + iAIM_SIZE, h/2);
+        int len = w * iAIM_SIZE / 100;
+        aimPath.moveTo(w/2 - len, h/2);
+        aimPath.lineTo(w/2 + len, h/2);
 
-        aimPath.moveTo(w/2, h/2- iAIM_SIZE);
-        aimPath.lineTo(w/2, h/2+ iAIM_SIZE);
+        aimPath.moveTo(w/2, h/2 - len);
+        aimPath.lineTo(w/2, h/2 + len);
     }
 
     @Override

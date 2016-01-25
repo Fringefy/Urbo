@@ -21,7 +21,7 @@
 namespace crtx {
 
 enum CrtxResult {
-	CRTX_OK,
+	CRTX_OK = 0,
 	CRTX_NO_MATCH = -2,		// the query was not found within the shortlist
 	CRTX_NON_INDEXABLE = -1	// the query does not contain a valid location
 };
@@ -57,7 +57,7 @@ struct Vote : std::vector<VoteEntry<UnaTy, IdTy>> {
 	CrtxResult result;			///< identification result
 	float fConfidence;			///< the confidence in the selected UNA
 	Entry* pMaxVote;
-	
+
 	Vote() :
 		result(CRTX_NON_INDEXABLE),
 		fConfidence(0),
@@ -82,6 +82,13 @@ struct Vote : std::vector<VoteEntry<UnaTy, IdTy>> {
 			return entry.id == id; 
 		});
 	}
+
+	void clear() {
+		V::clear();
+		fConfidence = 0;
+		pMaxVote = nullptr;
+		result = CRTX_NON_INDEXABLE;
+	}
 };
 
 
@@ -99,7 +106,7 @@ public:
 	/// 	The interface routes these params to the params structure. The rest of the
 	/// 	params are loaded through XML. </remarks>
 	struct Params {
-		bool bRotate;
+		bool bIdentify;
 		InputType inputType;
 	};
 
