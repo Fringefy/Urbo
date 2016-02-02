@@ -118,6 +118,7 @@ public class CameraView extends SurfaceView
 		}
 		Log.d(TAG, "Freeze()");
 		rotationSensorListener.freeze();
+		Urbo.getInstance().stop();
 
 		bLive = false;
 		return true;

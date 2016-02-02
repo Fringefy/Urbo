@@ -8,7 +8,7 @@
     <com.fringefy.urbo.CameraView
         android:id="@+id/camera_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
     <com.fringefy.urbo.app.view.DebugView
         android:id="@+id/debug_view"
@@ -28,7 +28,7 @@
         android:id="@+id/recognized"
         android:gravity="center"
         android:textStyle="bold"
-        android:textIsSelectable="false"/>
+        android:textIsSelectable="false" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -36,7 +36,7 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="score"
         android:id="@+id/score"
-        android:layout_gravity="left|bottom"/>
+        android:layout_gravity="left|bottom" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -45,7 +45,6 @@
         android:text="state"
         android:id="@+id/state"
         android:layout_gravity="center_horizontal|top"
-        android:clickable="true"
-        />
+        android:clickable="true" />
 
 </FrameLayout>

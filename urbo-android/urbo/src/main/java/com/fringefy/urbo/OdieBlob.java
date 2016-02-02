@@ -1,6 +1,5 @@
 package com.fringefy.urbo;
 
-import android.support.annotation.Nullable;
 import android.util.Log;
 import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.MediaType;
@@ -8,8 +7,6 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
-import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 
 class OdieBlob {
@@ -19,11 +16,6 @@ class OdieBlob {
 // Members
 
 	private final OkHttpClient okHttpClient;
-	private static final FilenameFilter filenameFilterJpeg = new FilenameFilter() {
-		@Override public boolean accept(File dir, String filename) {
-			return (filename.endsWith(".jpg"));
-		}
-	};
 
 	private String bucketName = "fringefyimages";
 	private String folder = "d/";
@@ -38,34 +30,33 @@ class OdieBlob {
 
 	/**
 	 * Synchronous Get method to upload an image to the Odie server.
-	 * @param fImg The image to upload
+	 * @param imgName The image name to create
+	 * @param imgBuf  The bytes to upload
 	 * @return return true if succeeded to upload
 	 */
-	synchronized boolean uploadImage(@Nullable File fImg) {
-		if (fImg == null) {
-			Log.e(TAG, "Failed to upload (null)" +
-					" to " + toStringForLog());
+	synchronized boolean uploadImage(String imgName, byte[] imgBuf) {
+		if (imgName == null || imgBuf == null) {
 			return false;
 		}
 		try {
-			Log.d(TAG, "Uploading " + fImg.getPath() + " to " +
-					String.format(serverAdress, fImg.getName()));
-			uploadInternal(fImg);
-			return fImg.delete();
+			Log.d(TAG, "Uploading " + String.format("%.1fKB", imgBuf.length/1024.) + " to " +
+					String.format(serverAdress, imgName));
+			uploadInternal(imgName, imgBuf);
+			return true;
 		}
 		catch (Exception e) {
-			Log.e(TAG, "Failed to upload " + fImg.getPath() +
+			Log.e(TAG, "Failed to upload " + imgName +
                     " to " + toStringForLog(), e);
 		}
 		return false;
 	}
 
-	private void uploadInternal(File fImg) throws IOException {
+	private void uploadInternal(String imgName, byte[] imgBuf) throws IOException {
 
 		Request request = new Request.Builder()
 				.header("Content-Type", "image/jpg")
-				.url(String.format(serverAdress, fImg.getName()))
-				.put(RequestBody.create(MediaType.parse("image/jpg"), fImg))
+				.url(String.format(serverAdress, imgName))
+				.put(RequestBody.create(MediaType.parse("image/jpg"), imgBuf))
 				.build();
 
 		Response response = okHttpClient.newCall(request).execute();
@@ -76,9 +67,9 @@ class OdieBlob {
 
         Headers responseHeaders = response.headers();
         for (int i = 0; i < responseHeaders.size(); i++) {
-           Log.d(TAG,responseHeaders.name(i) + ": " + responseHeaders.value(i));
+           Log.d(TAG, responseHeaders.name(i) + ": " + responseHeaders.value(i));
         }
-        Log.d(TAG,response.body().string());
+        Log.d(TAG, response.body().string());
 }
 
 	void setBucket(String s3Bucket, String s3Folder) {

@@ -1,7 +1,6 @@
 package com.fringefy.urbo.app;
 
 
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
@@ -11,7 +10,6 @@ import android.view.animation.AlphaAnimation;
 import android.widget.TextView;
 
 import com.fringefy.urbo.DebugListener;
-import com.fringefy.urbo.Poi;
 import com.fringefy.urbo.Snapshot;
 import com.fringefy.urbo.Urbo;
 
@@ -61,42 +59,28 @@ public class GlassActivity extends MainActivity implements DebugListener, View.O
 		switch (view.getId()) {
 
 		case R.id.recognized:
-			urbo.confirmRecognition(lastRecognizedSnapshotId);
+			urbo.confirmRecognition(snapshot);
 			recognizedView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+			recognizedView.clearAnimation();
+			recognizedView.setText("Thanks for sharing!");
+			recognizedView.setAlpha(1f);
+			recognizedView.startAnimation(fadeoutAnimation);
 			return true;
 		}
 		return false;
 	}
 
 	@Override
-	public void onStateChanged(final int iStateId, final Poi poi, final long lSnapshotId) {
-		super.onStateChanged(iStateId, poi, lSnapshotId);
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (iStateId == Urbo.STATE_RECOGNITION) {
-					recognizedView.clearAnimation();
-					recognizedView.setText(poi.getName());
-					recognizedView.setAlpha(1f);
-				}
-				else if (recognizedView.getAnimation() == null) {
-					recognizedView.startAnimation(fadeoutAnimation);
-				}
-			}
-		});
-	}
-
-	@Override
-	public void onSnapshot(Snapshot snapshot) {
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				recognizedView.clearAnimation();
-				recognizedView.setText("Thanks for sharing!");
-				recognizedView.setAlpha(1f);
-				recognizedView.startAnimation(fadeoutAnimation);
-			}
-		});
+	public void onStateChanged(int iStateId, Snapshot snapshot) {
+		super.onStateChanged(iStateId, snapshot);
+		if (iStateId == Urbo.STATE_RECOGNITION) {
+			recognizedView.clearAnimation();
+			recognizedView.setText(snapshot.getPoi().getName());
+			recognizedView.setAlpha(1f);
+		}
+		else if (recognizedView.getAnimation() == null) {
+			recognizedView.startAnimation(fadeoutAnimation);
+		}
 	}
 
 	@Override

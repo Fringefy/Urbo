@@ -4,7 +4,7 @@ package com.fringefy.urbo.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.net.Uri;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -26,7 +26,7 @@ import com.fringefy.urbo.Urbo;
 
 public class MainActivity extends Activity implements Urbo.Listener {
 
-	private static final String TAG = "MainActivity";
+	private static final String TAG = "Urbo";
 
 // Members
 
@@ -37,8 +37,6 @@ public class MainActivity extends Activity implements Urbo.Listener {
 	private EditText poiNameView;
 	private PoiListFragment searchFragment = new PoiListFragment();
 
-	protected Poi lastRecognizedPoi = null;
-	protected long lastRecognizedSnapshotId = Urbo.SNAPSHOT_ID_INVALID;
 	protected Snapshot snapshot = null;
 	private AlertDialog tagDialog;
 
@@ -59,12 +57,35 @@ public class MainActivity extends Activity implements Urbo.Listener {
 		debugListener = (DebugListener) findViewById(R.id.debug_view);
 
 		View dialogView = getLayoutInflater().inflate(R.layout.tag_dialog, null);
-		tagDialog = new AlertDialog.Builder(MainActivity.this)
-				.setView(dialogView)
-				.setPositiveButton("TAG IT!", null)
-				.setNegativeButton("Cancel", null)
-				.setCancelable(true)
-				.create();
+		tagDialog = new AlertDialog.Builder(this)
+			.setView(dialogView)
+			.setPositiveButton("TAG IT!", new DialogInterface.OnClickListener() {
+				@Override
+				public void onClick(DialogInterface dialog, int which) {
+					tagSnapshot();
+				}
+			})
+			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+				@Override
+				public void onClick(DialogInterface dialog, int which) {
+					dismissSnapshot();
+				}
+			})
+			.setOnCancelListener(new DialogInterface.OnCancelListener() {
+				@Override
+				public void onCancel(DialogInterface dialog) {
+					dismissSnapshot();
+				}
+			})
+//	cannot use this because we set minSdkVersion lower than 17
+//			.setOnDismissListener(new DialogInterface.OnDismissListener() {
+//				@Override
+//				public void onDismiss(DialogInterface dialog) {
+//					dismissSnapshot();
+//				}
+//			})
+			.setCancelable(true)
+			.create();
 		tagDialog.getWindow().setSoftInputMode(
 				WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
 
@@ -73,11 +94,11 @@ public class MainActivity extends Activity implements Urbo.Listener {
 			@Override
 			public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
 				if (actionId == EditorInfo.IME_NULL) {
-					confirmPoi();
+					tagSnapshot();
 					return true;
 				}
 				if (actionId == EditorInfo.IME_ACTION_DONE) {
-					confirmPoi();
+					tagSnapshot();
 					return true;
 				}
 				return false;
@@ -111,11 +132,13 @@ public class MainActivity extends Activity implements Urbo.Listener {
 			break;
 
 		case R.id.btn_tag:
-			if (!urbo.getSnapshot(lastRecognizedSnapshotId)) {
-				debugListener.removeField("POI");
-				debugListener.removeField("Snap ID");
+			if (snapshot == null) {
+				Log.d(TAG, "takeSnapshot");
 				urbo.takeSnapshot();
 			}
+			else {
+				showDialog();
+			};
 			break;
 
 		default:
@@ -151,22 +174,27 @@ public class MainActivity extends Activity implements Urbo.Listener {
 // Urbo Listeners
 
 	@Override
-	public void onStateChanged(final int iStateId, final Poi poi, final long lSnapshotId) {
+	public void onStateChanged(int iStateId, Snapshot snapshot) {
 
 		switch (iStateId) {
 		case Urbo.STATE_SEARCH:
-			debugListener.setField("State", "seaching...");
+			debugListener.setField("State", "Searching...");
 			break;
 		case Urbo.STATE_RECOGNITION:
 			debugListener.setField("State", "Recognition");
-			debugListener.setField("POI", poi.getName());
-			debugListener.setField("Snap ID", String.valueOf(lSnapshotId));
+			if (snapshot.getPoi() == null) {
+				debugListener.setField("POI", "null");
+			}
+			else {
+				debugListener.setField("POI", snapshot.getPoi().getName());
+			}
+			this.snapshot = snapshot;
 			break;
 		case Urbo.STATE_NO_RECOGNITION:
 			debugListener.setField("State", "No recognition");
 			break;
 		case Urbo.STATE_NON_INDEXABLE:
-			debugListener.setField("State", "Non indexable");
+			debugListener.setField("State", "Not indexable");
 			break;
 		case Urbo.STATE_BAD_ORIENTATION:
 			debugListener.setField("State", "Bad orientation");
@@ -177,31 +205,40 @@ public class MainActivity extends Activity implements Urbo.Listener {
 		default:
 			break;
 		}
-
-		if (iStateId == Urbo.STATE_RECOGNITION) {
-			lastRecognizedPoi = poi;
-			lastRecognizedSnapshotId = lSnapshotId;
-		}
 	}
 
 	@Override
 	public void onSnapshot(Snapshot snapshot) {
 		this.snapshot = snapshot;
-		runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				openTagDialog();
-			}
-		});
+		showDialog();
 	}
 
-	private void confirmPoi() {
+	private void showDialog() {
+		if (snapshot.getPoi() != null) {
+			poiNameView.setText(snapshot.getPoi().getName());
+		}
+		Drawable drawable = Drawable.createFromStream(snapshot.getJpegStream(), "");
+		tagImageView.setImageDrawable(drawable);
+		tagImageView.setMinimumHeight(getWindow().getDecorView().getHeight() / 2);
+		tagDialog.show();
+
+		for (Urbo.PoiVote vote : snapshot.getVotes()) {
+			Log.d(TAG, String.format("vote\t%.2f\t%s", vote.fVote, vote.poi.getName()));
+		}
+	}
+
+	private void tagSnapshot() {
 		Poi poi = getPoi(poiNameView.getText());
 		if (poi != null && snapshot != null) {
 			urbo.tagSnapshot(snapshot, poi);
-			snapshot = null;
-			tagDialog.dismiss();
 		}
+		snapshot = null;
+		tagDialog.dismiss();
+	}
+
+	private void dismissSnapshot() {
+		urbo.rejectRecognition(snapshot);
+		snapshot = null;
 	}
 
 	private Poi getPoi(CharSequence csPoiName) {
@@ -215,24 +252,6 @@ public class MainActivity extends Activity implements Urbo.Listener {
 			}
 		}
 		return new Poi(sPoiName).setFirstComment("Created with Urbo App");
-	}
-
-	private void openTagDialog() {
-		poiNameView.setText(lastRecognizedPoi == null ? "" : lastRecognizedPoi.getName());
-		tagImageView.setImageURI(Uri.fromFile(snapshot.getImgFile()));
-		tagImageView.setMinimumHeight(getWindow().getDecorView().getHeight()/2);
-		tagDialog.show();
-		tagDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(
-				new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						confirmPoi();
-					}
-				});
-
-		for (Urbo.PoiVote vote : snapshot.getVotes()) {
-			Log.d(TAG, vote.poi.getName() + "\t" + String.format("%.1f", vote.fVote));
-		}
 	}
 
 	private void showSearch() {

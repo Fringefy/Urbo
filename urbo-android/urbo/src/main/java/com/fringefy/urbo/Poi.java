@@ -15,9 +15,6 @@ import java.util.Date;
 
 public class Poi {
 
-	// TODO: instead, check that getId() == null
-	private transient volatile boolean bLocked = true;
-
 	/** global POI id, can be null in case of a client-only POI */
 	private String _id;
 
@@ -39,7 +36,7 @@ public class Poi {
 		return this;
 	}
 
- 	final double[] loc = new double[] { Double.NaN, Double.NaN };
+ 	float[] loc;
 	// TODO: maybe keep accuracy, too?
 
 	/** POI category (type) */
@@ -206,7 +203,6 @@ public class Poi {
 							name + (locality == null ? "" : ", " + locality), "utf-8");
 				}
 				catch (UnsupportedEncodingException e) {
-					// TODO: error
 					return "https://www.google.com/search?q=" + name;
 				}
 
@@ -258,7 +254,6 @@ public class Poi {
 // Construction
 
 	public Poi(@NonNull String sName) {
-		this.bLocked = false;
 		this.timestamp = new Date();
 		this.name = sName;
 	}
@@ -285,12 +280,9 @@ public class Poi {
 
 // Private Methods
 
-	void lock() {
-		bLocked = true;
-	}
-
 	private void lockCheck() {
-		if (bLocked)
+		if (getId() != null) {
 			throw new IllegalStateException("Cannot modify an already registered POI");
+		}
 	}
 }

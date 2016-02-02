@@ -6,6 +6,7 @@ import java.util.Map;
 import android.app.Activity;
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -57,6 +58,7 @@ public class DebugView extends TableLayout implements DebugListener {
 			removeField(sId);
 			return;
 		}
+		Log.i("Urbo", sId + ": " + sVal);
 		((Activity) getContext()).runOnUiThread(new Runnable() {
 			@Override
 			public void run() {

@@ -6,8 +6,6 @@ import java.io.File;
 
 abstract class Pexeso {
 
-// Inner Classes
-
 // Construction
 
 	static {
@@ -39,14 +37,13 @@ abstract class Pexeso {
 	static native void pushLocation(Location location);
 	static native void forceCacheRefresh();
     static native boolean takeSnapshot();
-	static native boolean confirmRecognition(long lSnapshotId);
-	static native boolean rejectRecognition(long lSnapshotId);
-	static native boolean tagSnapshot(Snapshot snapshot, Poi poi);
-	static native boolean getSnapshot(long lSnapshotId);
+	static native void confirmRecognition(Snapshot snapshot);
+	static native void rejectRecognition(Snapshot snapshot);
+	static native void tagSnapshot(Snapshot snapshot, Poi poi);
 	static native Poi[] getPoiShortlist();
 	static native Location getCurrentLocation();
 
-	// TODO: these callback will be gone, simply returned by Java when Urbo.xsIo will be migrated to C++
+	// TODO: these callbacks will be gone, simply returned by Java when Urbo.xsIo will be migrated to C++
 	static native boolean poiCacheRequestCallback(int iRequestId, Location location, Poi[] pois);
 	static native void poiCacheUpdateCallback(Odie.PutResponse putResponse);
 }

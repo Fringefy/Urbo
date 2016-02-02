@@ -1,5 +1,7 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.percent.PercentFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:percent="http://schemas.android.com/apk/res-auto"
     android:id="@+id/activity_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -34,11 +36,26 @@
         android:onClick="onClick"
         android:layout_gravity="right|bottom"/>
 
-    <com.fringefy.urbo.app.view.ViewFinder
-        android:id="@+id/aim"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center"/>
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_gravity="center"
+        android:alpha="0.25"
+        percent:layout_heightPercent="8%"
+        percent:layout_aspectRatio="100%">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_gravity="center"
+            android:background="#ffffffff"
+            />
+        <View
+            android:layout_width="2dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:background="#ffffffff"
+            />
+    </FrameLayout>
 
     <com.fringefy.urbo.app.view.DebugView
         android:id="@+id/debug_view"
@@ -49,4 +66,4 @@
         android:padding="5dp"
         android:layout_gravity="right|top"/>
 
-</FrameLayout>
+</android.support.percent.PercentFrameLayout>
