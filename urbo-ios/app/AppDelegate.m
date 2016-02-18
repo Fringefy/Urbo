@@ -10,8 +10,6 @@
 
 - (BOOL)application:(UIApplication *)application
 didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    [Urbo startWithApiKey:@"RnNmIgxtZzcajIZww7NlKnAeYwTjOq9xp9Xu7YkS"];
-    [Urbo getInstance].baseUrl = @"https://odie.fringefy.com/";
     return YES;
 }
 

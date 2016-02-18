@@ -18,11 +18,11 @@ static Urbo *sharedInstance = nil;
     return sharedInstance;
 }
 
-+ (void) startWithApiKey:(NSString *) apiKey
++ (void) start:(id<UrboDelegate>) delegate withApiKey:(NSString *) apiKey
 {
     sharedInstance = [[self alloc] init];
     sharedInstance.pexeso = [[PexesoBridge alloc] init];
-    sharedInstance.poisArray = [[NSMutableArray alloc] init];
+    sharedInstance.delegate = delegate;
     sharedInstance.apiKey = apiKey;
     sharedInstance.baseUrl = @"https://odie.fringefy.com/";
     if ([[NSUserDefaults standardUserDefaults]
@@ -71,7 +71,7 @@ static Urbo *sharedInstance = nil;
 {
     self.manager = [[CMMotionManager alloc] init];
     if (self.manager.deviceMotionAvailable) {
-        self.manager.deviceMotionUpdateInterval = 0.01;
+        self.manager.deviceMotionUpdateInterval = 0.1;
         [self.manager startDeviceMotionUpdatesToQueue:[NSOperationQueue mainQueue]
                                           withHandler:^(CMDeviceMotion * _Nullable motion,
                                                         NSError * _Nullable error) {
@@ -108,34 +108,35 @@ static Urbo *sharedInstance = nil;
     return [self.pexeso getPoiShortlist];
 }
 
--(BOOL) confirmRecognition:(long) snapshotId {
-  return  [self.pexeso confirmRecognition:snapshotId];
+-(void) confirmRecognition:(Snapshot*)snapshot {
+  [self.pexeso confirmRecognition:snapshot];
 }
 
--(BOOL) rejectRecognition:(long) snapshotId {
-   return [self.pexeso rejectRecognition:snapshotId];
-}
-
--(BOOL) getSnapshot:(long) snapshotId {
-    return [self.pexeso getSnapshot:snapshotId];
+-(void) rejectRecognition:(Snapshot*)snapshot {
+   [self.pexeso rejectRecognition:snapshot];
 }
 
 -(BOOL) takeSnapshot {
     return [self.pexeso takeSnapshot];
 }
 
-- (void) forceCacheRefresh {
+-(void) forceCacheRefresh {
     [self.pexeso forceCacheRefresh];
 }
 
-- (void) restartLiveFeed {
+-(void) restartLiveFeed {
     [self.pexeso restartLiveFeed];
+}
+
+-(CLLocation *) getCurrentLocation
+{
+    return [self.pexeso getCurrentLocation];
 }
 
 #pragma mark pexeso delegates
 
 
--(void)pexesoOnRecognition:(Snapshot *)snapshot
+-(void)sendRecoEvent:(Snapshot *)snapshot
 {
     [self uploadImage:snapshot];
     NSArray *poiArray;
@@ -154,16 +155,8 @@ static Urbo *sharedInstance = nil;
     [[APIClient sharedClient] sendPoisWithEvents:resultDict
         success:^(NSURLSessionTask *task, id responseObject) {
             [self.pexeso poiCacheUpdateCallback:responseObject];
-            if ([self.delegate respondsToSelector:
-                @selector(urboApiMessage:response:)]) {
-                    [self.delegate urboApiMessage:1 response:responseObject];
-                }
         }
         failure:^(NSURLSessionTask *task, NSError *error) {
-            if ([self.delegate respondsToSelector:
-                @selector(urboApiMessage:response:)]) {
-                    [self.delegate urboApiMessage:0 response:error.userInfo];
-                }
         }
     ];
 }
@@ -175,7 +168,7 @@ static Urbo *sharedInstance = nil;
     NSString *filePath = [docDir stringByAppendingPathComponent:
                           snapshot.recoEvent.imgFileName];
     NSData *imageData = [NSData dataWithData:UIImageJPEGRepresentation
-                         (snapshot.snapshotImage, 1.0)];
+                         (snapshot.snapshotImage, 0.9)];
     [imageData writeToFile:filePath atomically:YES];
     AWSS3TransferManager *transferManager = [AWSS3TransferManager
                                              defaultS3TransferManager];
@@ -190,44 +183,7 @@ static Urbo *sharedInstance = nil;
     }];
 }
 
--(void)pexesoDidChangeState:(StateId)state withPoi:(POI *)poi
-              andSnapshotId:(int) snapshotId;
-{
-    if ([self.delegate
-         respondsToSelector:@selector(urboDidChangeState:withPoi:andSnapshotId:)])
-        [self.delegate urboDidChangeState:state withPoi:poi andSnapshotId:snapshotId];
-}
-
--(void)pexesoOnSnapshot:(Snapshot *)snapshot
-{
-    if ([self.delegate respondsToSelector:@selector(urboOnSnapshot:)])
-        [self.delegate urboOnSnapshot:snapshot];
-}
-
--(void)pexesoDidGetError:(SeverityCode)errorCode message:(NSString *)message
-{
-    switch(errorCode) {
-        case CODE_DBG:
-//            NSLog(@"DBG \n");
-            break;
-        case CODE_INFORMATION:
-//            NSLog(@"INFORMATION \n");
-            break;
-        case CODE_WARNING:
-//            NSLog(@"WARNING \n");
-            break;
-        case CODE_ERROR:
-//            NSLog(@"ERROR \n");
-            break;
-        case CODE_MAX_SEVERITY:
-//            NSLog(@"MAX_SEVERITY \n");
-            break;
-        default:
-            NSLog(@"Error");
-    }
-}
-
--(void)pexesoDidRequestListener:(int)requestId withLocation:(CLLocation *)location
+-(void)sendCacheRequest:(int)requestId withLocation:(CLLocation *)location
 {
     [[APIClient sharedClient] getPOIs:@(location.coordinate.longitude)
                                   lat:@(location.coordinate.latitude)
@@ -240,14 +196,14 @@ static Urbo *sharedInstance = nil;
                                   self.tabpageUrl = responseObject[@"tabpageUrl"];
                                   self.mappageUrl = responseObject[@"mappageUrl"];
                                   self.downsizedUrl = responseObject[@"downsizedUrl"];
-                                  [[Urbo getInstance].poisArray removeAllObjects];
+                                  NSMutableArray* pois = [[NSMutableArray alloc] init];
                                   for (NSDictionary *dict in responseObject[@"pois"]) {
                                       POI *poi = [POI poiWithJSON:dict];
-                                      [[Urbo getInstance].poisArray addObject:poi];
+                                      [pois addObject:poi];
                                   }
                                   [self.pexeso poiCacheRequestCallback:requestId
                                                               location:location
-                                                                  pois:self.poisArray];
+                                                                  pois:pois];
                               }
                               failure:^(NSURLSessionTask *task,NSError *error) {
                               }];

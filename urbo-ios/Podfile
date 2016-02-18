@@ -1,5 +1,6 @@
 platform :ios,:deployment_target => '7.0'
 pod "AFNetworking"
+pod 'OpenCV'
 source 'https://github.com/CocoaPods/Specs.git'
 pod 'AWSCore'
 pod 'AWSS3'

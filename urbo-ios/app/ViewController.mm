@@ -1,13 +1,12 @@
 #import "ViewController.h"
 #import "APIClient.h"
 #import "POI.h"
+#import "PoiVote.h"
 #import "Snapshot.h"
 
 @interface ViewController ()
 {
-    POI *recognisedPoi;
-    int lastRecognizedSnapshotId;
-    Snapshot *returnedSnapshot;
+    Snapshot *lastSnapshot;
 }
 @end
 
@@ -17,8 +16,8 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [Urbo start:self withApiKey:NSLocalizedStringFromTable(@"ApiKey", @"ApiKey", nil)];
     self.textField.delegate = self;
-    [Urbo getInstance].delegate = self;
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(keyboardShown:)
                                                  name:UIKeyboardWillShowNotification
@@ -39,57 +38,141 @@
     [super didReceiveMemoryWarning];
 }
 
--(void)urboDidChangeState:(StateId)state withPoi:(POI *)poi andSnapshotId:(int)snapshotId;
+-(void)onStateChanged:(StateId)stateId withSnapshot:(Snapshot*)snapshot;
 {
     dispatch_async(dispatch_get_main_queue(), ^{
         self.poiLabel.text = @"";
-        switch (state) {
+        switch (stateId) {
             case SEARCH:
-                NSLog(@"SEARCH \n");
+                logIt([NSString stringWithFormat:@"SEARCH"]);
                 self.stateLabel.text = @"SEARCH";
                 break;
             case RECOGNITION:
-                lastRecognizedSnapshotId = snapshotId;
-                recognisedPoi = poi;
-                self.poiLabel.text = poi.name;
-                NSLog(@"RECOGNITION \n");
+                lastSnapshot = snapshot;
+                self.poiLabel.text = snapshot.poi.name;
+                logIt([NSString stringWithFormat:@"RECOGNITION %@", snapshot.poi.name]);
                 self.stateLabel.text = @"RECOGNITION";
                 break;
             case NO_RECOGNITION:
-                NSLog(@"NO_RECOGNITION \n");
+                logIt([NSString stringWithFormat:@"NO_RECOGNITION"]);
                 self.stateLabel.text = @"NO_RECOGNITION";
                 break;
             case NON_INDEXABLE:
-                NSLog(@"NON_INDEXABLE \n");
+                logIt([NSString stringWithFormat:@"NON_INDEXABLE"]);
                 self.stateLabel.text = @"NON_INDEXABLE";
                 break;
             case BAD_ORIENTATION:
-                NSLog(@"BAD_ORIENTATION \n");
+                logIt([NSString stringWithFormat:@"BAD_ORIENTATION"]);
                 self.stateLabel.text = @"BAD_ORIENTATION";
                 break;
             case MOVING:
-                NSLog(@"MOVING \n");
+                logIt([NSString stringWithFormat:@"MOVING"]);
                 self.stateLabel.text = @"MOVING";
                 break;
+            case COLD_START:
+                logIt([NSString stringWithFormat:@"COLD_START"]);
+                self.stateLabel.text = @"COLD_START";
+                break;
             default:
-                NSLog(@"Error");
+                [self onError:CODE_ERROR message:[NSString
+                    stringWithFormat:@"UNexpected state %d", (int)stateId]];
         }
     });
+}
+
+void logIt(NSString *string) {
+
+    static NSDateFormatter *timeFormatter = nil;
+    static NSString *writePath = nil;
+
+    NSLog(@"%@", string);
+    if (timeFormatter == nil) {
+        timeFormatter = [[NSDateFormatter alloc] init];
+        [timeFormatter setDateFormat:@"HH:mm:ss.SSS"];
+    }
+    NSDate *date = [NSDate date];
+    string = [NSString stringWithFormat:@"%@ - %@\n",
+              [timeFormatter stringFromDate:date], string];
+
+    if (writePath == nil) {
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+        [dateFormatter setDateFormat:@"YYYY-MM-dd"];
+        NSString *path = [NSString stringWithFormat:@"%@-logFile.txt",
+                          [dateFormatter stringFromDate:date]];
+        writePath = [[
+                      NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)
+                      objectAtIndex:0] stringByAppendingPathComponent:path];
+    }
+    NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:writePath];
+    if (fileHandle) {
+        [fileHandle seekToEndOfFile];
+        [fileHandle writeData:[string dataUsingEncoding:NSUTF8StringEncoding]];
+        [fileHandle closeFile];
+    }
+    else {
+        [string writeToFile:writePath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
+}
+
+
+-(void)onError:(SeverityCode)errorCode message:(NSString *)message
+{
+    switch (errorCode) {
+        case CODE_DBG:
+            logIt([NSString stringWithFormat:@"DEBUG: %@", message]);
+            break;
+        case CODE_INFORMATION:
+            logIt([NSString stringWithFormat:@"INFO: %@", message]);
+            break;
+        case CODE_WARNING:
+            logIt([NSString stringWithFormat:@"WARN: %@", message]);
+            break;
+        case CODE_ERROR:
+            logIt([NSString stringWithFormat:@"ERROR: %@", message]);
+            break;
+        default:
+            logIt([NSString stringWithFormat:@"Error %d, %@", (int)errorCode, message]);
+    }
 }
 
 -(IBAction) tagAction
 {
     self.tagView.hidden = NO;
-    [[Urbo getInstance] takeSnapshot];
+    if (lastSnapshot) {
+        [self.poiImageView setImage:lastSnapshot.snapshotImage];
+        [self.textField setText:lastSnapshot.poi.name];
+        [self.urboCameraView freeze];
+    }
+    else {
+        [[Urbo getInstance] takeSnapshot];
+    }
 }
 
 -(IBAction)applyPoi:(id)sender
 {
     [self.textField resignFirstResponder];
-    POI *newPOI = [[POI alloc] init];
-    newPOI.name = self.textField.text;
-    newPOI.type = @(0);
-    [[Urbo getInstance] tagSnapshot:returnedSnapshot poi:newPOI];
+
+    if (self.textField.text.length == 0) {
+        [[Urbo getInstance] rejectRecognition:lastSnapshot];
+    }
+    else if ([self.textField.text isEqual:lastSnapshot.poi.name]) {
+        [[Urbo getInstance] confirmRecognition:lastSnapshot];
+    }
+    else {
+        NSString* newPOIname = [self.textField.text
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        POI* newPOI = [[POI alloc] init:newPOIname];
+        newPOI.firstComment = @"from Urbo app for iOS";
+        for (id vote in lastSnapshot.votes) {
+            POI* poi = ((PoiVote*)vote).poi;
+            if ([poi.name isEqual:newPOIname]) {
+                newPOI = poi;
+                break;
+            }
+        }
+        [[Urbo getInstance] tagSnapshot:lastSnapshot poi:newPOI];
+    }
+    lastSnapshot = nil;
     self.poiImageView.image = nil;
     self.tagView.hidden = YES;
     [self.urboCameraView unFreeze];
@@ -107,12 +190,12 @@
     self.bottomConstaraint.constant = 0;
 }
 
--(void)urboOnSnapshot:(Snapshot *)snapshot
+-(void)onSnapshot:(Snapshot *)snapshot
 {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.poiImageView setImage:snapshot.snapshotImage];
         [self.urboCameraView freeze];
-        returnedSnapshot = snapshot;
+        lastSnapshot = snapshot;
     });
 
 }

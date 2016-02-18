@@ -1,25 +1,23 @@
 #import "PexesoBridge.h"
 #import "POI.h"
+#import "UNA.h"
 #import "PoiVote.h"
 #import "Snapshot.h"
+#import "Urbo.h"
 #include <typeinfo>
+#include "IPexeso.hpp"
 
 using namespace std;
 
 @implementation PexesoBridge
 
 IPexeso *px;
-id<PexesoDelegate> delegate;
+Urbo* urbo;
 PexesoBridge *localBridge;
 
 class BufferManager: public IBufferManager
 {
 public:
-    BufferManager(int w, int h) {
-        this->w = w;
-        this->h = h;
-        this->rotation = 0;
-    }
     void registerThread();
     void closeThread();
     char* open(ImgBuffer imgBuf);
@@ -27,6 +25,7 @@ public:
     ImgBuffer newBuffer();
     void releaseBufferToCamera(ImgBuffer imgBuf);
     void deleteBuffer(ImgBuffer imgBuf);
+    PlatformImage compress(ImgBuffer imgBuf);
 };
 
 class ListUnaIterator : public IUnaIterator
@@ -56,52 +55,91 @@ public:
     void iterate(const Function&);
 };
 
-BufferManager *bufferManager;
+BufferManager bufferManager;
 
-- (void) initPexeso:(id<PexesoDelegate>) newDelegate
+RecoEvent* getRecoEvent(const IPexeso::Snapshot& snapshot) {
+
+    RecoEvent* oRecoEvent = [[RecoEvent alloc] init];
+    oRecoEvent.deviceID = [Urbo getInstance].deviceId;
+    oRecoEvent.clientTimestamp = @(snapshot.clientTimestamp.count());
+    oRecoEvent.loc = @[
+        @(snapshot.sensorState.location.fLng),@(snapshot.sensorState.location.fLat)];
+    oRecoEvent.locAccuracy = @(snapshot.sensorState.location.fRadius);
+    oRecoEvent.pitch = @(snapshot.sensorState.fPitch);
+    oRecoEvent.camAzimuth = @(snapshot.sensorState.fHeading);
+    const char* machineSelectedPoi = snapshot.machineSelectedPoi.getId().c_str();
+    if (machineSelectedPoi && machineSelectedPoi[0]) {
+        oRecoEvent.machineSelectedPoi = [NSString stringWithCString:machineSelectedPoi
+                                         encoding:[NSString defaultCStringEncoding]];
+    }
+    oRecoEvent.imgFileName = [NSString stringWithFormat:@"%@.%li.jpg", oRecoEvent.deviceID,
+        [oRecoEvent.clientTimestamp longValue]];
+    oRecoEvent.clientGeneratedUNA = [NSString stringWithCString:snapshot.sUna.c_str()
+                                         encoding:[NSString defaultCStringEncoding]];
+        
+    return oRecoEvent;
+}
+
+Snapshot* getSnapshot(const IPexeso::Snapshot& snapshot) {
+
+    Snapshot* oSnapshot = [[Snapshot alloc] init];
+    oSnapshot.recoEvent = getRecoEvent(snapshot);
+    oSnapshot.poi = (__bridge POI*)snapshot.machineSelectedPoi.pUser;
+    oSnapshot.snapshotImage = (UIImage*)CFBridgingRelease(snapshot.platformImage);
+
+    vector<IVote> votes = snapshot.vVotes;
+    NSMutableArray *arrayVotes = [[NSMutableArray alloc] init];
+    for (int i=0; i<votes.size();i++) {
+        PoiVote *vote = [[PoiVote alloc] init];
+        vote.poi = (__bridge POI*)votes[i].poi->pUser;
+        vote.vote = votes[i].fScore;
+        [arrayVotes addObject:vote];
+    }
+    oSnapshot.votes = arrayVotes;
+    return oSnapshot;
+}
+
+- (void) initPexeso:(Urbo*) urboInstance
 {
     IPexeso::Params params;
 //    NSString* path = [[NSBundle mainBundle] pathForResource:@"settings" ofType:@"xml"];
 //    std::string *xml = new std::string([path UTF8String]);
     params.inputType = InputType::BGR;
     params.bIdentify = true;
-    
-    delegate = newDelegate;
+
+    urbo = urboInstance;
     localBridge = self;
     
-    params.stateChangeListener = [&](const IPexeso::IState& state) {
-        POI *poi;
-        int snapshotId = 0;
-        if (state.id == RECOGNITION) {
-            poi = (__bridge POI *)state.pPoi->pUser;
-            snapshotId = (int)state.snapshotId;
-        }
-        if ([delegate
-             respondsToSelector:@selector(pexesoDidChangeState:withPoi:andSnapshotId:)])
-            [delegate
-             pexesoDidChangeState:StateId(state.id) withPoi:poi andSnapshotId:snapshotId];
-        return YES;
+    params.stateChangeListener = [&](const IPexeso::State& state) {
+        if ([urbo.delegate respondsToSelector:@selector(onStateChanged: withSnapshot:)])
+            [urbo.delegate onStateChanged:StateId(state.id) withSnapshot:nil];
     };
-    
+
+    params.recognitionListener = [&](const IPexeso::Snapshot& snapshot) {
+        if ([urbo.delegate
+             respondsToSelector:@selector(onStateChanged: withSnapshot:)]) {
+            Snapshot* oSnapshot = getSnapshot(snapshot);
+            [urbo.delegate onStateChanged:StateId(RECOGNITION) withSnapshot:oSnapshot];
+        }
+    };
+
     params.errorListener = [&](Severity severity, string sMsg) {
         NSString *msg = [NSString stringWithCString:sMsg.c_str()
                                            encoding:[NSString defaultCStringEncoding]];
-        if ([delegate respondsToSelector:@selector(pexesoDidGetError:message:)])
-            [delegate pexesoDidGetError:SeverityCode(severity) message:msg];
+            [urbo.delegate onError:SeverityCode(severity) message:msg];
     };
     
     params.poiCacheRequestListener = [&](int iRequestId, Location loc) {
-        CLLocation *location = [[CLLocation alloc] initWithLatitude:loc.fLat
-                                                          longitude:loc.fLng];
-        if ([delegate respondsToSelector:@selector(pexesoDidRequestListener:
-                                                   withLocation:)]) {
-            [delegate pexesoDidRequestListener:iRequestId withLocation:location];
-        }
+        CLLocation *location = [[CLLocation alloc]
+                                initWithLatitude:loc.fLat longitude:loc.fLng];
+        [urbo sendCacheRequest:iRequestId withLocation:location];
     };
     
-    params.snapshotListener = [&](const IPexeso::ISnapshot& snapshot,
-                                  ImgBuffer& imgBuf, bool bTagImmediately) {
-        [localBridge onSnapshot:snapshot imageBuffer:imgBuf tagImmediately:bTagImmediately];
+    params.snapshotListener = [&](const IPexeso::Snapshot& snapshot) {
+        if ([urbo.delegate respondsToSelector:@selector(onSnapshot:)]) {
+            Snapshot* oSnapshot = getSnapshot(snapshot);
+            [urbo.delegate onSnapshot:oSnapshot];
+        }
     };
 
     if (px == nullptr) {
@@ -111,7 +149,9 @@ BufferManager *bufferManager;
 
 -(void) initLiveFeed:(int) width  height:(int) height
 {
-    bufferManager = new BufferManager(width, height);
+    bufferManager.w = width;
+    bufferManager.h = height;
+    bufferManager.rotation = 0;
     px->initLiveFeed(bufferManager);
 }
 
@@ -127,9 +167,7 @@ BufferManager *bufferManager;
 
 - (void) pushFrame:(CMSampleBufferRef) byteBuff
 {
-    CFRetain(byteBuff);
-    ImgBuffer imgBufIn = byteBuff;
-    px->pushFrame(imgBufIn);
+    px->pushFrame(CFRetain(byteBuff));
 }
 
 -(void) pushHeading:(float) heading
@@ -162,17 +200,15 @@ BufferManager *bufferManager;
 
 -(void) poiCacheUpdateCallback:(NSDictionary *)response
 {
-    if (!response){
+    if (!response) {
         return;
     }
     NSDictionary *oPois = response[@"pois"];
-    if (!oPois)
-    {
+    if (!oPois) {
         return;
     }
     NSDictionary *oSyncList = oPois[@"syncList"];
-    if (!oSyncList)
-    {
+    if (!oSyncList) {
         return;
     }
 
@@ -180,8 +216,16 @@ BufferManager *bufferManager;
         NSString *sClientId = [oSyncList allKeys][0];
         NSString *sServerId = oSyncList[sClientId];
         IPoi::ClientId clientId = [sClientId intValue];
-        const char* zServerId = [sServerId UTF8String];
-        px->updatePoiId(clientId, zServerId);
+        const char* szServerId = [sServerId UTF8String];
+		const IPoi* pPoi = px->updatePoiId(clientId, szServerId);
+        if (pPoi && pPoi->pUser) {
+            POI* poi = (__bridge POI*)pPoi->pUser;
+            poi.poiId = sServerId;
+        }
+        else {
+            [urbo.delegate onError:SeverityCode(ERROR)
+                message:@"poiCacheUpdateCallback could not find cached POI"];
+        }
     }
 }
 
@@ -191,86 +235,78 @@ BufferManager *bufferManager;
    return px->takeSnapshot();
 }
 
--(BOOL) tagSnapshot:(Snapshot *)oSnap poi:(POI *)oPoi
+-(void) tagSnapshot:(Snapshot*)oSnapshot poi:(POI*)oPoi
 {
-    if (!oSnap) {
-        return false;
+    if (!oSnapshot) {
+        [urbo.delegate onError:SeverityCode(ERROR)
+            message:@"tagSnapshot: snapshot is NIL"];
+        return;
     }
-    if (!oPoi) {
-        return false;
+    if (!oPoi || oPoi.name.length == 0) {
+        [urbo.delegate onError:SeverityCode(ERROR)
+            message:@"tagSnapshot: poi is NIL"];
+        return;
     }
     IPoi poi = createPoi(oPoi);
-    IPexeso::ISnapshot snapshot = createSnapshot(oSnap);
+    IPexeso::Snapshot snapshot = createSnapshot(oSnapshot);
     TagResult tagResult = px->tagSnapshot(snapshot, poi);
-    oSnap.recoEvent.isIndex = @(tagResult.bIsIndex);
-    oSnap.recoEvent.userFeedback = @(tagResult.bUserFeedback);
-    oSnap.recoEvent.userSelectedPoi = [NSString
-                                       stringWithCString:tagResult.pPoi->getId().c_str()
-                                       encoding:[NSString defaultCStringEncoding]];
+    oSnapshot.recoEvent.isIndex = @(tagResult.bIsIndex);
+    oSnapshot.recoEvent.userFeedback = @(tagResult.bUserFeedback);
+    oSnapshot.recoEvent.userSelectedPoi = [NSString
+        stringWithCString:tagResult.pPoi->getId().c_str()
+        encoding:[NSString defaultCStringEncoding]];
     oPoi.clientId = [NSString stringWithFormat:@"%ld",(long)tagResult.pPoi->clientId];
     if (!oPoi.imgFileName) {
-        oPoi.imgFileName = oSnap.recoEvent.imgFileName;
+        oPoi.imgFileName = oSnapshot.recoEvent.imgFileName;
     }
-    oPoi.loc = [self locationCtoOarray:tagResult.pPoi->loc];
-    oSnap.poi = oPoi;
+    oPoi.loc = locationCtoOarray(tagResult.pPoi->loc);
+    oSnapshot.poi = (__bridge POI*)tagResult.pPoi->pUser;
     
-    if([delegate respondsToSelector:@selector(pexesoOnRecognition:)])
-        [delegate pexesoOnRecognition:oSnap];
-    
-    return true;
+    [urbo sendRecoEvent:oSnapshot];
 }
 
-IPexeso::ISnapshot createSnapshot(Snapshot *inSnap)
+IPexeso::Snapshot createSnapshot(Snapshot *oSnapshot)
 {
-    IPexeso::ISnapshot snapshot;
-    if (!inSnap) {
-        return snapshot;
-    }
-    
-    NSString *sUna = inSnap.recoEvent.clientGeneratedUNA;
+    IPexeso::Snapshot snapshot;
+
+    NSString *sUna = oSnapshot.recoEvent.clientGeneratedUNA;
     if (sUna) {
         const char* pcUna = [sUna UTF8String];
         snapshot.sUna = pcUna;
     }
-    snapshot.sensorState.location = locationOarraytoC(inSnap.recoEvent.loc);
-    snapshot.sensorState.fHeading = [inSnap.recoEvent.camAzimuth floatValue];
-    if (inSnap.poi) {
-        snapshot.machineSelectedPoi = createPoi(inSnap.poi);
+    snapshot.sensorState.location = locationOarraytoC(oSnapshot.recoEvent.loc);
+    snapshot.sensorState.fHeading = [oSnapshot.recoEvent.camAzimuth floatValue];
+    if (oSnapshot.poi) {
+        snapshot.machineSelectedPoi = createPoi(oSnapshot.poi);
     }
     return snapshot;
 }
 
 IPoi createPoi(POI *oPoi)
 {
-    if (!oPoi || !oPoi.name) {
-        return IPoi();
-    }
     Location loc = locationOarraytoC(oPoi.loc);
 
     const char* pcPoiName = [oPoi.name UTF8String];
     const char* pcPoiId = oPoi.poiId ? [oPoi.poiId UTF8String] : "";
+    IPoi::ClientId clientId = oPoi.clientId ? [oPoi.clientId intValue] : IPoi::INVALID_ID;
 
-    IPoi poi(pcPoiName, loc, pcPoiId, oPoi.clientId ? [oPoi.clientId intValue] : IPoi::INVALID_ID);
-    poi.pUser = (__bridge void *)oPoi;
+    IPoi poi(pcPoiName, loc, pcPoiId, clientId);
 
     oPoi.clientId = [NSString stringWithFormat:@"%u", poi.clientId];
+    poi.pUser = (__bridge_retained void *)oPoi; // PoiCache is now the owner of the POI object
+    oPoi = nil;
 
     return poi;
 }
 
--(BOOL) getSnapshot:(long) snapshotId
+-(void)confirmRecognition:(Snapshot*)pSnapshot
 {
-    return px->getSnapshot(snapshotId);
+    px->confirmRecognition(createSnapshot(pSnapshot));
 }
 
--(BOOL)confirmRecognition:(long)snapshotId
+-(void)rejectRecognition:(Snapshot*)pSnapshot
 {
-    return px->confirmRecognition(snapshotId);
-}
-
--(BOOL)rejectRecognition:(long)snapshotId
-{
-    return px->rejectRecognition(snapshotId);
+    px->rejectRecognition(createSnapshot(pSnapshot));
 }
 
 -(NSArray *) getPoiShortlist
@@ -278,79 +314,16 @@ IPoi createPoi(POI *oPoi)
     PoiShortlist shortlist = px->getPoiShortlist(true);
     NSMutableArray *oPois = [[NSMutableArray alloc] init];
     for (int i = 0; i < shortlist.size(); i++) {
-        [oPois addObject:(__bridge POI *)shortlist[i].poi->pUser];
+        IVote vote = shortlist[i];
+        POI *poi = (__bridge POI *)vote.poi->pUser;
+        [oPois addObject:poi];
     }
     return oPois;
 }
 
 -(CLLocation *) getCurrentLocation
 {
-    return [self locationCtoO:px->getCurrentLocation()];
-}
-
--(void) onSnapshot:(const IPexeso::ISnapshot&) snapshot imageBuffer:(ImgBuffer&) imgBuf
-    tagImmediately:(bool)bTagImmediately
-{
-    CLLocation *oLocation = [self locationCtoO:snapshot.sensorState.location];
-    NSString *sUna = [NSString stringWithCString:snapshot.sUna.c_str()
-                                       encoding:[NSString defaultCStringEncoding]];
-    
-    POI *oMachineSelectedPoi = (__bridge POI *)snapshot.machineSelectedPoi.pUser;
-    Snapshot *oSnapshot = [[Snapshot alloc] init];
-    oSnapshot.recoEvent = [[RecoEvent alloc]initWithLocation:oLocation
-                                                       pitch:snapshot.sensorState.fPitch
-                                                     azimuth:snapshot.sensorState.fHeading
-                                                 selectedPoi:oMachineSelectedPoi.getId
-                                                   clientUNA:sUna];
-    
-    CMSampleBufferRef buffer = (CMSampleBufferRef)imgBuf;
-    UIImage *sampleImage =  [self imageFromSampleBuffer:buffer];
-    oSnapshot.snapshotImage = sampleImage;
-    if (bTagImmediately) {
-        [self tagSnapshot:oSnapshot poi:oMachineSelectedPoi];
-    }
-    vector<IVote> votes = snapshot.vVotes;
-    NSMutableArray *arrayVotes = [[NSMutableArray alloc] init];
-    for (int i=0; i<votes.size();i++)
-    {
-        PoiVote *vote = [[PoiVote alloc] init];
-        vote.poi = (__bridge POI *)votes[i].poi->pUser;
-        vote.vote = votes[i].fScore;
-        [arrayVotes addObject:vote];
-    }
-    oSnapshot.votes = arrayVotes;
-    if ([delegate respondsToSelector:@selector(pexesoOnSnapshot:)])
-        [delegate pexesoOnSnapshot:oSnapshot];
-}
-
-- (UIImage *) imageFromSampleBuffer:(CMSampleBufferRef) sampleBuffer
-{
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-    CVPixelBufferLockBaseAddress(imageBuffer, 0);
-    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
-    size_t width = CVPixelBufferGetWidth(imageBuffer);
-    size_t height = CVPixelBufferGetHeight(imageBuffer);
-    u_int8_t *baseAddress = (u_int8_t *)malloc(bytesPerRow*height);
-    memcpy( baseAddress, CVPixelBufferGetBaseAddress(imageBuffer), bytesPerRow * height);
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(baseAddress,
-                                                 width,
-                                                 height,
-                                                 8,
-                                                 bytesPerRow,
-                                                 colorSpace,
-                                                 kCGBitmapByteOrder32Little |
-                                                 kCGImageAlphaNoneSkipFirst);
-    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
-    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
-    CGContextRelease(context);
-    CGColorSpaceRelease(colorSpace);
-    UIImage *image = [UIImage imageWithCGImage:quartzImage];
-    free(baseAddress);
-    CGImageRelease(quartzImage);
-    
-    
-    return (image);
+    return locationCtoO(px->getCurrentLocation());
 }
 
 #pragma mark BufferManager implementation
@@ -359,17 +332,17 @@ char* BufferManager::open(ImgBuffer imgBuf)
 {
     CMSampleBufferRef buffer = (CMSampleBufferRef)imgBuf;
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
-    CVPixelBufferLockBaseAddress(imageBuffer,0);
-    char* src_buff = (char *)CVPixelBufferGetBaseAddress(imageBuffer);
+    CVPixelBufferLockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
+    void* src_buff = CVPixelBufferGetBaseAddress(imageBuffer);
         
-    return src_buff;
+    return (char*)src_buff;
 }
 
 void BufferManager::close(ImgBuffer imgBuf, char *&pBuf)
 {
     CMSampleBufferRef buffer = (CMSampleBufferRef)imgBuf;
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
-    CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+    CVPixelBufferUnlockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
     pBuf = nil;
 }
 
@@ -389,18 +362,38 @@ ImgBuffer BufferManager::newBuffer()
 
 void BufferManager::releaseBufferToCamera(ImgBuffer imgBuf)
 {
-        if (imgBuf != this)
-        {
-            CFRelease((CMSampleBufferRef)imgBuf);
-            imgBuf = nil;
-        }
+    if (imgBuf != this) {
+        CFRelease(imgBuf);
+        imgBuf = nil;
+    }
 }
 
 void BufferManager::deleteBuffer(ImgBuffer imgBuf)
 {
-    
 }
 
+// Note that on iOS, compress creates a UIImage* from ImgBuffer;
+// actual JPEG is generated in Urbo.uploadImage
+PlatformImage BufferManager::compress(ImgBuffer imgBuf)
+{
+    CMSampleBufferRef buffer = (CMSampleBufferRef)imgBuf;
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
+    CVPixelBufferLockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
+    size_t width = CVPixelBufferGetWidth(imageBuffer);
+    size_t height = CVPixelBufferGetHeight(imageBuffer);
+    void* src_buff = CVPixelBufferGetBaseAddress(imageBuffer);
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(src_buff, width, height, 8,
+        bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaNoneSkipFirst);
+    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
+    CVPixelBufferUnlockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+    UIImage *image = [UIImage imageWithCGImage:quartzImage];
+    CGImageRelease(quartzImage);
+    return CFBridgingRetain(image);
+}
 
 #pragma mark private methods
 
@@ -417,7 +410,7 @@ Location locationOtoC(CLLocation * oLoc)
     }
 }
 
--(NSArray *) locationCtoOarray:(Location) location
+NSArray* locationCtoOarray(Location location)
 {
     return @[@(location.fLng),@(location.fLat)];
 }
@@ -428,12 +421,11 @@ Location locationOarraytoC(NSArray *locArray)
         return Location();
     }
     else {
-        return Location ([locArray[1] floatValue],
-                         [locArray[0] floatValue]);
+        return Location ([locArray[1] floatValue], [locArray[0] floatValue]);
     }
 }
 
--(CLLocation *) locationCtoO:(Location) location
+CLLocation* locationCtoO(Location location)
 {
     
     CLLocation *loc = [[CLLocation alloc]
@@ -466,8 +458,8 @@ void ListPoiIterator::iterate(const ListPoiIterator::Function& fn)
     for (size_t i = 0; i < size(); i++) {
         POI *poi = poisArray[i];
         if (poi) {
-            IPoi iPoi = createPoi(poi);
             NSArray *usig = poi.usig;
+            IPoi iPoi = createPoi(poi);
             ListUnaIterator unaIterator(usig);
             fn(iPoi, unaIterator);
         }

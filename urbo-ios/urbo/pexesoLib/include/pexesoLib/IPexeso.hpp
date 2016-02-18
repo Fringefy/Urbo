@@ -35,6 +35,14 @@ struct TagResult {
 
 class IBufferManager;
 
+#ifndef PlatformImage
+class _PlatformImage;
+typedef _PlatformImage* PlatformImage;
+#endif
+#ifndef ImgBuffer
+class _ImgBuffer;
+typedef _ImgBuffer* ImgBuffer;
+#endif
 
 /// <summary> The Pexeso public interface. </summary>
 /// <remarks> This is used both as a public interface for Pexeso consumers who do not
@@ -47,47 +55,36 @@ public:
 
 // Inner Types
 
-	typedef steady_clock::time_point Timestamp;
-	typedef size_t SnapshotId;
-	const static SnapshotId INVALID_SNAPSHOT_ID = (const SnapshotId) -1;
-
-	struct IState {
-		Timestamp t;
+	struct State {
 		StateId id;
-		const IPoi* pPoi;
-		SnapshotId snapshotId;
+		string sPoiId; // NOTE: for micro-optimization, could use long clientId
+		steady_clock::time_point timestamp;
 
-		IState() = default;
-		IState(StateId id, const IPoi* pPoi, SnapshotId snapshotId) :
-				id(id),
-				pPoi(pPoi),
-				snapshotId(snapshotId)
-		{
-			t = steady_clock::now();
-		}
+		State(): id(COLD_START) {}
+		State(StateId id): id(id), timestamp(steady_clock::now()) {}
+		State(StateId id, IPoi& poi):
+			id(id), sPoiId(poi.getId()), timestamp(steady_clock::now()) {}
 	};
 
-	struct ISnapshot {
-		Timestamp timestamp;
+	struct Snapshot {
+		milliseconds clientTimestamp;
 		SensorState sensorState;
 		string sUna;
 		vector<IVote> vVotes;
 		IPoi machineSelectedPoi;
+		PlatformImage platformImage;
 	};
 
-	typedef function<void(int iRequestId,
-		const Location& location)> PoiCacheRequestListener;
-
-	typedef function<bool(const IPexeso::IState& state)> StateChangeListener;
-	typedef function<void(const IPexeso::ISnapshot&, ImgBuffer&, bool)> SnapshotListener;
+	typedef function<void(int iRequestId, const Location& location)> PoiCacheRequestListener;
+	typedef function<void(const IPexeso::State&)> StateChangeListener;
+	typedef function<void(const IPexeso::Snapshot&)> SnapshotListener;
 
 	struct Params : ICortex::Params {
 		ErrorListener errorListener;
 		PoiCacheRequestListener poiCacheRequestListener;
 		StateChangeListener stateChangeListener;
-		SnapshotListener snapshotListener;
+		SnapshotListener snapshotListener, recognitionListener;
 	};
-
 
 // Factory
 
@@ -102,17 +99,16 @@ public:
 
 	virtual bool poiCacheRequestCallback(int iRequestId, const Location& location,
 		IPoiIterator& poiIterator) = 0;
-	virtual void updatePoiId(IPoi::ClientId clientId, string serverId) = 0;
+	virtual const IPoi* updatePoiId(IPoi::ClientId clientId, string serverId) = 0;
 
-	virtual void initLiveFeed(IBufferManager* pBufManager) = 0;
+	virtual void initLiveFeed(IBufferManager& bufManager) = 0;
 	virtual void stopLiveFeed() = 0;
 
-	virtual TagResult tagSnapshot(const ISnapshot& snapshot, const IPoi& poi) = 0;
+	virtual TagResult tagSnapshot(const Snapshot& snapshot, const IPoi& poi) = 0;
 
 	virtual bool takeSnapshot() = 0;
-	virtual bool getSnapshot(SnapshotId snapshotId) = 0;
-	virtual bool confirmRecognition(SnapshotId snapshotId) = 0;
-	virtual bool rejectRecognition(SnapshotId snapshotId) = 0;
+	virtual TagResult confirmRecognition(const Snapshot& snapshot) = 0;
+	virtual void rejectRecognition(const Snapshot& snapshot) = 0;
 
 	virtual void forceCacheRefresh() = 0;
 
@@ -140,4 +136,5 @@ public:
 	virtual ImgBuffer newBuffer() = 0;
 	virtual void releaseBufferToCamera(ImgBuffer imgBuf) = 0;
 	virtual void deleteBuffer(ImgBuffer imgBuf) = 0;
+	virtual PlatformImage compress(ImgBuffer imgBuf) = 0;
 };

@@ -32,7 +32,7 @@ struct VoteEntry {
 	IdTy id;
 	float fScore;
 		
-	VoteEntry() { assert(false);  }
+	VoteEntry() = delete;
 	VoteEntry(UnaTy una, IdTy id, float fScore = NAN) :
 		una(una),
 		id(id),
@@ -75,12 +75,6 @@ struct Vote : std::vector<VoteEntry<UnaTy, IdTy>> {
 			auto unaAndId = unaAndIdGetter(*it);
 			emplace_back(unaAndId.first, unaAndId.second);
 		}
-	}
-
-	inline Entry* find(IdTy id) {
-		return &*find_if(V::begin(), V::end(), [&](Entry& entry) { 
-			return entry.id == id; 
-		});
 	}
 
 	void clear() {

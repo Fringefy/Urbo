@@ -1,36 +1,3 @@
-// Using the experimental plugin (requires gradle 2.5), we can build and debug
-// the native shared library. It depends on the static library built in the "urbo" module.
-//
-//****************************************************************************************
-
-def versionMajor = 2
-def versionMid   = 5
-def versionMinor = 0
-def dailyBuild   = 1
-
-def getDateAsString() {
-
-    def stdout = new ByteArrayOutputStream()
-    exec {
-        executable = 'git'
-        args = ['show', '-s', '--format="%cd"', '--date=short']
-        standardOutput = stdout;
-    }
-    def (Y, M, D) = "${stdout}".tokenize('-"\n');
-    return "${D}/${M}/${Y}";
-}
-
-def getDateAsInt() {
-    def stdout = new ByteArrayOutputStream()
-    exec {
-        executable = 'git'
-        args = ['show', '-s', '--format="%cd"', '--date=short']
-        standardOutput = stdout;
-    }
-    def (Y, M, D) = "${stdout}".tokenize('-"\n');
-    return "${Y}${M}${D}".toInteger()-20000000
-}
-
 // check if OpenCV has been downloaded locally
 
 Properties properties = new Properties()
@@ -54,14 +21,14 @@ model {
     }
 
     android {
-        compileSdkVersion = 23
-        buildToolsVersion = "23.0.2"
+        compileSdkVersion = rootProject.ext.compileSdkVersion
+        buildToolsVersion = rootProject.ext.buildToolsVersion
         defaultConfig.with {
             applicationId = 'com.fringefy.urbo.app'
-            minSdkVersion.apiLevel = 16
-            targetSdkVersion.apiLevel = 21
-            versionCode = "${versionMajor}${versionMid}${getDateAsInt()}${dailyBuild}".toInteger()
-            versionName = "${versionMajor}.${versionMid}.${versionMinor} ${getDateAsString()} #${dailyBuild}"
+            minSdkVersion.apiLevel = rootProject.ext.minSdkVersion
+            targetSdkVersion.apiLevel = rootProject.ext.targetSdkVersion
+            versionCode = rootProject.ext.versionCode
+            versionName = rootProject.ext.versionName
         }
         buildTypes.with {
             debug {
@@ -113,32 +80,6 @@ model {
     android.sources {
         main.jni.source {
             srcDirs = ["../pexeso-android"]
-        }
-    }
-}
-
-// If OpenCV is not available locally, we use the prebuilt library from GIT or built externally
-
-if (!file("$OpenCV_include").exists()) {
-
-    tasks.all {
-        task ->
-            if (task.name.startsWith('link')) {
-                task.enabled = false
-            }
-            if (task.name.startsWith('stripSymbols')) {
-                task.enabled = false
-            }
-            if (task.name.startsWith('compileArm')) {
-                task.enabled = false
-            }
-    }
-
-    model {
-        android.sources {
-            main.jniLibs.source {
-                srcDirs = ["../urbo/libs"]
-            }
         }
     }
 }

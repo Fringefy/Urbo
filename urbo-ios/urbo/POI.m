@@ -1,12 +1,23 @@
 #import "POI.h"
 #import <objc/runtime.h>
 #import "UrboCameraView.h"
+#import "UNA.h"
 
 @implementation POI
 
 + (POI *)poiWithJSON:(id)JSON;
 {
     return [[self alloc] initWithJSON:JSON];
+}
+
+-(instancetype)init:(NSString*)name
+{
+    self = [super init];
+    if (self) {
+        self.name = name;
+        self.type = 0;
+    }
+    return self;
 }
 
 -(void)setValue:(id)value forUndefinedKey:(NSString *)key

@@ -3,19 +3,16 @@
 #import <CoreLocation/CoreLocation.h>
 #import <CoreMotion/CoreMotion.h>
 #import "PexesoBridge.h"
-#import "RecoEvent.h"
 
 @class POI;
 
 @protocol UrboDelegate;
 
-@interface Urbo : NSObject <CLLocationManagerDelegate,PexesoDelegate>
+@interface Urbo : NSObject <CLLocationManagerDelegate>
 
 @property (strong, nonatomic) PexesoBridge *pexeso;
 @property (nonatomic) CLLocationManager *locationManager;
-@property (nonatomic) NSMutableArray *poisArray;
 @property (nonatomic) id<UrboDelegate> delegate;
-@property (nonatomic) RecoEvent *recoEvent;
 @property (nonatomic) CMMotionManager *manager;
 @property (nonatomic) NSString *deviceId;
 @property (nonatomic) NSString *apiKey;
@@ -28,25 +25,25 @@
 @property (nonatomic) NSString *downsizedUrl;
 
 + (Urbo *) getInstance;
-+ (void) startWithApiKey:(NSString *) apiKey;
++ (void) start:(id<UrboDelegate>)delegate withApiKey:(NSString *) apiKey;
 - (BOOL) takeSnapshot;
-- (BOOL) getSnapshot:(long) snapshotId;
 - (void) tagSnapshot:(Snapshot*)snapshot poi:(POI *)poi;
 - (NSArray *) getPoiShortlist;
-- (BOOL) confirmRecognition:(long) snapshotId;
-- (BOOL) rejectRecognition:(long) snapshotId;
+- (CLLocation *) getCurrentLocation;
+- (void) confirmRecognition:(Snapshot*) snapshot;
+- (void) rejectRecognition:(Snapshot*) snapshot;
 - (void) restartLiveFeed;
 - (void) forceCacheRefresh;
+
+- (void) sendRecoEvent:(Snapshot *)snapshot;
+- (void) sendCacheRequest:(int)requestId withLocation:(CLLocation *)location;
 
 @end
 
 @protocol UrboDelegate <NSObject>
 
-- (void) urboDidChangeState:(StateId) state
-                    withPoi:(POI *)poi
-              andSnapshotId:(int) snapshotId;
-- (void) urboOnSnapshot:(Snapshot *)snapshot;
-@optional
-- (void) urboApiMessage:(int)type response:(id) response;
+- (void) onError:(SeverityCode) errorCode message:(NSString *) message;
+- (void) onStateChanged:(StateId)stateId withSnapshot:(Snapshot *)snapshot;
+- (void) onSnapshot:(Snapshot *)snapshot;
 
 @end

@@ -1,8 +1,6 @@
 
 #import "JSONObject.h"
 #import <CoreLocation/CoreLocation.h>
-#import "Urbo.h"
-#import "UNA.h"
 
 @interface POI : JSONObject 
 
@@ -24,7 +22,6 @@
 @property (nonatomic, strong) NSString *locality;
 @property (nonatomic, strong) NSString *name;
 @property (nonatomic, strong) NSNumber *type;
-@property (nonatomic) BOOL isNew;
 @property (nonatomic) int distance;
 @property (nonatomic) double score;
 @property (nonatomic) NSMutableArray* usig;
@@ -51,6 +48,7 @@
 @property (nonatomic, strong) NSNumber *actionType;
 
 + (POI*) poiWithJSON:(id)JSON;
+- (instancetype)init:(NSString*)name;
 - (NSDictionary *)dictionaryRepresentation;
 - (NSString *) getId;
 - (BOOL) isClientOnly;

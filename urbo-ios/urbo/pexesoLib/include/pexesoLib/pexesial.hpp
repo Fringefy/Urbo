@@ -7,6 +7,11 @@
 
 using namespace std;
 
+#ifndef PlatformPoi
+class _PlatformPoi;
+typedef _PlatformPoi* PlatformPoi;
+#endif
+
 /// <summary> A geographical location (we use decimal degrees). </summary>
 struct Location {
 	float fLat, fLng;
@@ -28,23 +33,25 @@ struct Location {
 struct IPoi {
 	typedef uint32_t ClientId;
 	const static int INVALID_ID = 0;
-	const static int CLIENT_ID_MAX_LEN = 12; // see UINT32_MAX = 4294967295U
 
 	IPoi(): clientId(INVALID_ID), pUser(nullptr) {}; // special constructor of an invalid object
 	IPoi(string name, Location loc, string id, ClientId clientId):
 		clientId(clientId == INVALID_ID ? ++nextId : clientId),
 		name(name), id(id), loc(loc), pUser(nullptr) {};
 
-	bool equals(const IPoi& other) const {
-		return id.empty() ? clientId == other.clientId : id == other.id;
+	bool operator==(const IPoi& other) const {
+		return operator==(other.id);
 	}
 
-	// TODO: [SY] use streams
+	bool operator==(const string& otherId) const {
+		return getId() == otherId;
+	}
+
 	string getId() const {
 		if (id.empty()) {
-			char szClientId[CLIENT_ID_MAX_LEN];
-			sprintf(szClientId, "%u", clientId);
-			return szClientId;
+			ostringstream osClientId;
+			osClientId << clientId;
+			return osClientId.str();
 		}
 		return id;
 	}
@@ -53,7 +60,7 @@ struct IPoi {
 	string name;
 	string id;
 	Location loc;
-	void* pUser;
+	PlatformPoi pUser;
 
 private:
 	static atomic<int> nextId;	// TODO: [SY] consider having the PoiCache manage this
@@ -115,7 +122,6 @@ enum Severity {
 };
 
 typedef function<void(Severity severity, string sMsg)> ErrorListener;
-typedef void* ImgBuffer;
 
 struct SensorState {
 	float fHeading;

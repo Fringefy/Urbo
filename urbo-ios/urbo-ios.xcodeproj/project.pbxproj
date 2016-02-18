@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		183700211BC39C960062D9F3 /* UrboCameraView.m in Sources */ = {isa = PBXBuildFile; fileRef = 183700201BC39C960062D9F3 /* UrboCameraView.m */; };
 		183700231BC39CB10062D9F3 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 183700221BC39CB10062D9F3 /* AVFoundation.framework */; };
-		183700281BC39D440062D9F3 /* opencv2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 183700271BC39D440062D9F3 /* opencv2.framework */; };
 		183F83AD1BCB9D2400704E03 /* JSONObject.m in Sources */ = {isa = PBXBuildFile; fileRef = 183F83AA1BCB9D2400704E03 /* JSONObject.m */; };
 		183F83AE1BCB9D2400704E03 /* POI.m in Sources */ = {isa = PBXBuildFile; fileRef = 183F83AC1BCB9D2400704E03 /* POI.m */; };
 		18965C9A1BD7D53D00ED228D /* PexesoBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = 18965C991BD7D53D00ED228D /* PexesoBridge.mm */; };
@@ -18,10 +17,9 @@
 		18E6458E1BC54CE100075452 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18E6458D1BC54CE100075452 /* CoreMotion.framework */; };
 		6F994C1F1C2AF9EE00FBE14F /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		6FCD099A1C47A23700147748 /* Urbo.mm in Sources */ = {isa = PBXBuildFile; fileRef = 6FCD09991C47A23700147748 /* Urbo.mm */; };
-		8FBCF16D6CE87FAEA5137B11 /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C9A013C19A184ACA27EDE093 /* libPods.a */; };
+		6FD9E6991C6B917300ACD624 /* ApiKey.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6FD9E6971C6B917300ACD624 /* ApiKey.strings */; };
 		9C31C4971C2C07B8006D79AC /* PoiVote.m in Sources */ = {isa = PBXBuildFile; fileRef = 9C31C4961C2C07B8006D79AC /* PoiVote.m */; };
 		9C579CEC1BF218EB00562E94 /* AssetsLibrary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C579CEB1BF218EB00562E94 /* AssetsLibrary.framework */; };
-		9C59BD0E1BF21CE6001B39A6 /* libjpeg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C59BD0D1BF21CE6001B39A6 /* libjpeg.a */; };
 		9C6853661BF1EB6900078257 /* UNA.m in Sources */ = {isa = PBXBuildFile; fileRef = 9C6853651BF1EB6900078257 /* UNA.m */; };
 		9C6A1C5C1C29605300FC931E /* Snapshot.m in Sources */ = {isa = PBXBuildFile; fileRef = 9C6A1C5B1C29605300FC931E /* Snapshot.m */; };
 		9CC082531BFE14350000D950 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 9CC082521BFE14350000D950 /* main.m */; };
@@ -32,13 +30,13 @@
 		9CFD7B331BFE14C500FC6FC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9CFD7B321BFE14C500FC6FC6 /* Assets.xcassets */; };
 		9CFD7B381BFE14D500FC6FC6 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9CFD7B341BFE14D500FC6FC6 /* LaunchScreen.storyboard */; };
 		9CFD7B391BFE14D500FC6FC6 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9CFD7B361BFE14D500FC6FC6 /* Main.storyboard */; };
+		DB555580A39EB6A5DC59E500 /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE06AD38BCA1987C87979073 /* libPods.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		1837001F1BC39C960062D9F3 /* UrboCameraView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UrboCameraView.h; sourceTree = "<group>"; };
 		183700201BC39C960062D9F3 /* UrboCameraView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UrboCameraView.m; sourceTree = "<group>"; };
 		183700221BC39CB10062D9F3 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
-		183700271BC39D440062D9F3 /* opencv2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = opencv2.framework; sourceTree = "<group>"; };
 		1837FFF11BC399510062D9F3 /* urbo-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "urbo-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		183F83A91BCB9D2400704E03 /* JSONObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSONObject.h; sourceTree = "<group>"; };
 		183F83AA1BCB9D2400704E03 /* JSONObject.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JSONObject.m; sourceTree = "<group>"; };
@@ -51,11 +49,12 @@
 		18965CC41BD8E33B00ED228D /* APIClient.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = APIClient.m; sourceTree = "<group>"; };
 		18E6458B1BC54CDA00075452 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		18E6458D1BC54CE100075452 /* CoreMotion.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMotion.framework; path = System/Library/Frameworks/CoreMotion.framework; sourceTree = SDKROOT; };
+		6F259BE21C709EBF000C35EB /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6FCD09991C47A23700147748 /* Urbo.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Urbo.mm; sourceTree = "<group>"; };
+		6FD9E6981C6B917300ACD624 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = app/Base.lproj/ApiKey.strings; sourceTree = SOURCE_ROOT; };
 		9C31C4951C2C07B8006D79AC /* PoiVote.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PoiVote.h; sourceTree = "<group>"; };
 		9C31C4961C2C07B8006D79AC /* PoiVote.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PoiVote.m; sourceTree = "<group>"; };
 		9C579CEB1BF218EB00562E94 /* AssetsLibrary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AssetsLibrary.framework; path = System/Library/Frameworks/AssetsLibrary.framework; sourceTree = SDKROOT; };
-		9C59BD0D1BF21CE6001B39A6 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = urbo/libjpeg.a; sourceTree = "<group>"; };
 		9C6853641BF1EB6900078257 /* UNA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UNA.h; sourceTree = "<group>"; };
 		9C6853651BF1EB6900078257 /* UNA.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UNA.m; sourceTree = "<group>"; };
 		9C6A1C5A1C29605300FC931E /* Snapshot.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Snapshot.h; sourceTree = "<group>"; };
@@ -78,7 +77,7 @@
 		9CFD7B351BFE14D500FC6FC6 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = app/Base.lproj/LaunchScreen.storyboard; sourceTree = SOURCE_ROOT; };
 		9CFD7B371BFE14D500FC6FC6 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = app/Base.lproj/Main.storyboard; sourceTree = SOURCE_ROOT; };
 		9EC1EA29A382520DD68F38C4 /* Pods.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.release.xcconfig; path = "Pods/Target Support Files/Pods/Pods.release.xcconfig"; sourceTree = "<group>"; };
-		C9A013C19A184ACA27EDE093 /* libPods.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPods.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE06AD38BCA1987C87979073 /* libPods.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPods.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF3DC15EE6B00C05EC8D4DDD /* Pods.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.debug.xcconfig; path = "Pods/Target Support Files/Pods/Pods.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -91,11 +90,9 @@
 				9C579CEC1BF218EB00562E94 /* AssetsLibrary.framework in Frameworks */,
 				18E6458E1BC54CE100075452 /* CoreMotion.framework in Frameworks */,
 				18E6458C1BC54CDA00075452 /* CoreLocation.framework in Frameworks */,
-				183700281BC39D440062D9F3 /* opencv2.framework in Frameworks */,
-				9C59BD0E1BF21CE6001B39A6 /* libjpeg.a in Frameworks */,
 				183700231BC39CB10062D9F3 /* AVFoundation.framework in Frameworks */,
-				8FBCF16D6CE87FAEA5137B11 /* libPods.a in Frameworks */,
 				9CF1E1D11C343BC300E229C3 /* libpexesoLib.a in Frameworks */,
+				DB555580A39EB6A5DC59E500 /* libPods.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +130,7 @@
 		1837FFE81BC399510062D9F3 = {
 			isa = PBXGroup;
 			children = (
+				6F259BE21C709EBF000C35EB /* README.md */,
 				1837FFF31BC399510062D9F3 /* app */,
 				1837FFF21BC399510062D9F3 /* Products */,
 				AC886EFE9089931CB6592A2B /* Pods */,
@@ -169,6 +167,7 @@
 			isa = PBXGroup;
 			children = (
 				9CC082521BFE14350000D950 /* main.m */,
+				6FD9E6971C6B917300ACD624 /* ApiKey.strings */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -223,13 +222,11 @@
 			isa = PBXGroup;
 			children = (
 				1837001E1BC39C960062D9F3 /* urbo */,
-				183700271BC39D440062D9F3 /* opencv2.framework */,
 				18E6458D1BC54CE100075452 /* CoreMotion.framework */,
 				18E6458B1BC54CDA00075452 /* CoreLocation.framework */,
 				183700221BC39CB10062D9F3 /* AVFoundation.framework */,
 				9C579CEB1BF218EB00562E94 /* AssetsLibrary.framework */,
-				9C59BD0D1BF21CE6001B39A6 /* libjpeg.a */,
-				C9A013C19A184ACA27EDE093 /* libPods.a */,
+				EE06AD38BCA1987C87979073 /* libPods.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -296,6 +293,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9CFD7B391BFE14D500FC6FC6 /* Main.storyboard in Resources */,
+				6FD9E6991C6B917300ACD624 /* ApiKey.strings in Resources */,
 				9CFD7B381BFE14D500FC6FC6 /* LaunchScreen.storyboard in Resources */,
 				9CFD7B331BFE14C500FC6FC6 /* Assets.xcassets in Resources */,
 			);
@@ -375,6 +373,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
+		6FD9E6971C6B917300ACD624 /* ApiKey.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				6FD9E6981C6B917300ACD624 /* Base */,
+			);
+			name = ApiKey.strings;
+			sourceTree = "<group>";
+		};
 		9CFD7B341BFE14D500FC6FC6 /* LaunchScreen.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -411,6 +417,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -454,6 +461,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";

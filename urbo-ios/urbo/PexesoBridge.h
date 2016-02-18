@@ -1,18 +1,22 @@
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreLocation/CoreLocation.h>
+
+#define PlatformPoi   CFTypeRef
+#define PlatformImage CFTypeRef
+#define ImgBuffer     CFTypeRef
+
 #ifdef __cplusplus
 #include "IPexeso.hpp"
 #endif
 
 @class POI;
 @class Snapshot;
-
-@protocol PexesoDelegate;
+@class Urbo;
 
 @interface PexesoBridge : NSObject
 
-- (void) initPexeso:(id<PexesoDelegate>) delegate;
+- (void) initPexeso:(Urbo *) urbo;
 - (void) initLiveFeed:(int) width  height:(int) height;
 - (void) pushFrame:(CMSampleBufferRef) byteBuff;
 - (void) pushPitch:(float) pitch;
@@ -22,15 +26,16 @@
                         location:(CLLocation *) location
                             pois:(NSArray*) poisList;
 - (void) stopLiveFeed;
-- (BOOL) tagSnapshot:(Snapshot *)oSnap poi:(POI *)oPoi;
+- (void) tagSnapshot:(Snapshot *) snapshot poi:(POI *)poi;
 - (NSArray *) getPoiShortlist;
-- (BOOL) confirmRecognition:(long) snapshotId;
-- (BOOL) rejectRecognition:(long) snapshotId;
-- (BOOL) getSnapshot:(long) snapshotId;
+- (CLLocation *) getCurrentLocation;
+- (void) confirmRecognition:(Snapshot *) snapshot;
+- (void) rejectRecognition:(Snapshot *) snapshot;
 - (BOOL) takeSnapshot;
 - (void) forceCacheRefresh;
 - (void) poiCacheUpdateCallback:(NSDictionary *)response;
 - (void) restartLiveFeed;
+
 
 typedef enum StateId StateId;
 
@@ -44,12 +49,3 @@ typedef enum {
 
 @end
 
-@protocol PexesoDelegate <NSObject>
-
-- (void) pexesoDidGetError:(SeverityCode) errorCode message:(NSString *) message;
-- (void) pexesoDidRequestListener:(int) requestId withLocation:(CLLocation *) location;
-- (void) pexesoDidChangeState:(StateId)state withPoi:(POI *)poi andSnapshotId:(int) snapshotId;
-- (void) pexesoOnSnapshot:(Snapshot *) snapshot;
-- (void) pexesoOnRecognition:(Snapshot *) snapshot;
-
-@end

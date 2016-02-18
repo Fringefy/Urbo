@@ -15,9 +15,8 @@
 // To guarantee that the shared library is always refreshed, we delete it in gradle task
 // rmSO.
 
-// Note that the native build depends on OpenCV, and it can be skipped if OpenCV is not
-// installed. OpenCV location on local computer should be described twice: in file
-// urbo-android/pexeso-android/local.mk and in urbo-android/local.properties.
+// Note that the native build depends on OpenCV. OpenCV location on local computer should
+// be described: in file urbo-android/local.properties.
 //
 //****************************************************************************************
 
@@ -31,9 +30,13 @@ if (Os.isFamily(Os.FAMILY_WINDOWS)) {
     ndkBuild += '.cmd'
 }
 
-// check if OpenCV has been downloaded locally
+def OpenCV_native = properties.getProperty('OpenCV.dir') + '/sdk/native'
 
-def OpenCV_include = properties.getProperty('OpenCV.dir') + '/sdk/native/jni/include'
+if (!file('../pexeso-android/local.mk').exists()) {
+    new File(file('../pexeso-android').absolutePath, 'local.mk').withWriterAppend { w ->
+        w << "include $OpenCV_native/jni/OpenCV.mk".toString()
+    }
+}
 
 // using experimental plugin http://tools.android.com/tech-docs/new-build-system/gradle-experimental
 
@@ -46,12 +49,11 @@ model {
     }
 
     android {
-        compileSdkVersion = 21
-        buildToolsVersion = "23.0.2"
+        compileSdkVersion = rootProject.ext.compileSdkVersion
+        buildToolsVersion = rootProject.ext.buildToolsVersion
         defaultConfig.with {
-            applicationId = 'com.fringefy.urbo'
-            minSdkVersion.apiLevel = 16
-            targetSdkVersion.apiLevel = 21
+            minSdkVersion.apiLevel = rootProject.ext.minSdkVersion
+            targetSdkVersion.apiLevel = rootProject.ext.targetSdkVersion
         }
     }
 }
@@ -80,27 +82,20 @@ tasks.all {
 }
 
 def appAbi = "armeabi-v7a"
-// make sure to run this task before pushing the shared library to GIT
 
 task buildSharedLib(type: Exec, description: 'Compile Shared lib via NDK') {
     commandLine "$ndkBuild", "NDK_APPLICATION_MK=../pexeso-android/Application.mk",
             "NDK_PROJECT_PATH=."
-    onlyIf {
-        file('../pexeso-android/local.mk').exists()
-    }
 }
 
 task cleanNative(type: Exec, description: 'Clean JNI object files') {
     commandLine "$ndkBuild", "clean", "NDK_APPLICATION_MK=../pexeso-android/Application.mk",
             "NDK_PROJECT_PATH=."
-    onlyIf {
-        file('../pexeso-android/local.mk').exists()
-    }
 }
 
 clean.dependsOn cleanNative
 
-// but we reference the source files of the static library here, to help source navigation
+// we reference the source files of the static library here, to help source navigation
 // and syntax highlighting in Android Studio.
 
 model {
@@ -111,7 +106,7 @@ model {
         cppFlags = ["-std=c++11", "-fno-rtti", "-fno-exceptions", "-Wno-write-strings"]
         cppFlags += "-I" + file("../pexeso-android").absolutePath
         cppFlags += "-I" + file("../../pexeso").absolutePath
-        cppFlags += "-I$OpenCV_include".toString()
+        cppFlags += "-I$OpenCV_native/jni/include".toString()
 
         stl = "gnustl_static"
         abiFilters += "$appAbi".toString()
