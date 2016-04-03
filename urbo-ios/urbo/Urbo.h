@@ -16,12 +16,9 @@
 @property (nonatomic) CMMotionManager *manager;
 @property (nonatomic) NSString *deviceId;
 @property (nonatomic) NSString *apiKey;
-@property (nonatomic) NSString *baseUrl;
-@property (nonatomic) NSString *sharepageUrl;
-@property (nonatomic) NSString *tabpageUrl;
+@property (nonatomic) NSString *sEndpoint;
 @property (nonatomic) NSString *s3Bucket;
 @property (nonatomic) NSString *s3Folder;
-@property (nonatomic) NSString *mappageUrl;
 @property (nonatomic) NSString *downsizedUrl;
 
 + (Urbo *) getInstance;

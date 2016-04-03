@@ -20,7 +20,6 @@
 		6FD9E6991C6B917300ACD624 /* ApiKey.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6FD9E6971C6B917300ACD624 /* ApiKey.strings */; };
 		9C31C4971C2C07B8006D79AC /* PoiVote.m in Sources */ = {isa = PBXBuildFile; fileRef = 9C31C4961C2C07B8006D79AC /* PoiVote.m */; };
 		9C579CEC1BF218EB00562E94 /* AssetsLibrary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C579CEB1BF218EB00562E94 /* AssetsLibrary.framework */; };
-		9C6853661BF1EB6900078257 /* UNA.m in Sources */ = {isa = PBXBuildFile; fileRef = 9C6853651BF1EB6900078257 /* UNA.m */; };
 		9C6A1C5C1C29605300FC931E /* Snapshot.m in Sources */ = {isa = PBXBuildFile; fileRef = 9C6A1C5B1C29605300FC931E /* Snapshot.m */; };
 		9CC082531BFE14350000D950 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 9CC082521BFE14350000D950 /* main.m */; };
 		9CD6B2AA1BF344D00022B3E1 /* RecoEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 9CD6B2A91BF344D00022B3E1 /* RecoEvent.m */; };
@@ -52,19 +51,16 @@
 		6F259BE21C709EBF000C35EB /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6FCD09991C47A23700147748 /* Urbo.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Urbo.mm; sourceTree = "<group>"; };
 		6FD9E6981C6B917300ACD624 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = app/Base.lproj/ApiKey.strings; sourceTree = SOURCE_ROOT; };
+		6FE70A801C75130400A18133 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = app/en.lproj/ApiKey.strings; sourceTree = SOURCE_ROOT; };
 		9C31C4951C2C07B8006D79AC /* PoiVote.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PoiVote.h; sourceTree = "<group>"; };
 		9C31C4961C2C07B8006D79AC /* PoiVote.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PoiVote.m; sourceTree = "<group>"; };
 		9C579CEB1BF218EB00562E94 /* AssetsLibrary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AssetsLibrary.framework; path = System/Library/Frameworks/AssetsLibrary.framework; sourceTree = SDKROOT; };
-		9C6853641BF1EB6900078257 /* UNA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UNA.h; sourceTree = "<group>"; };
-		9C6853651BF1EB6900078257 /* UNA.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UNA.m; sourceTree = "<group>"; };
 		9C6A1C5A1C29605300FC931E /* Snapshot.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Snapshot.h; sourceTree = "<group>"; };
 		9C6A1C5B1C29605300FC931E /* Snapshot.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Snapshot.m; sourceTree = "<group>"; };
 		9CC082521BFE14350000D950 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = app/main.m; sourceTree = SOURCE_ROOT; };
 		9CD6B2A81BF344D00022B3E1 /* RecoEvent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RecoEvent.h; sourceTree = "<group>"; };
 		9CD6B2A91BF344D00022B3E1 /* RecoEvent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RecoEvent.m; sourceTree = "<group>"; };
 		9CF1E1CA1C343BC300E229C3 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = common.h; sourceTree = "<group>"; };
-		9CF1E1CC1C343BC300E229C3 /* cortical.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cortical.hpp; sourceTree = "<group>"; };
-		9CF1E1CD1C343BC300E229C3 /* ICortex.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ICortex.hpp; sourceTree = "<group>"; };
 		9CF1E1CE1C343BC300E229C3 /* IPexeso.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = IPexeso.hpp; sourceTree = "<group>"; };
 		9CF1E1CF1C343BC300E229C3 /* pexesial.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = pexesial.hpp; sourceTree = "<group>"; };
 		9CF1E1D01C343BC300E229C3 /* libpexesoLib.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libpexesoLib.a; sourceTree = "<group>"; };
@@ -111,8 +107,6 @@
 				183F83AA1BCB9D2400704E03 /* JSONObject.m */,
 				183F83AB1BCB9D2400704E03 /* POI.h */,
 				183F83AC1BCB9D2400704E03 /* POI.m */,
-				9C6853641BF1EB6900078257 /* UNA.h */,
-				9C6853651BF1EB6900078257 /* UNA.m */,
 				18965C981BD7D53D00ED228D /* PexesoBridge.h */,
 				18965C991BD7D53D00ED228D /* PexesoBridge.mm */,
 				18965CC31BD8E33B00ED228D /* APIClient.h */,
@@ -149,12 +143,12 @@
 		1837FFF31BC399510062D9F3 /* app */ = {
 			isa = PBXGroup;
 			children = (
+				9CFD7B2C1BFE149100FC6FC6 /* Info.plist */,
 				9CFD7B341BFE14D500FC6FC6 /* LaunchScreen.storyboard */,
 				9CFD7B361BFE14D500FC6FC6 /* Main.storyboard */,
 				9CFD7B321BFE14C500FC6FC6 /* Assets.xcassets */,
 				9CFD7B2A1BFE149100FC6FC6 /* AppDelegate.h */,
 				9CFD7B2B1BFE149100FC6FC6 /* AppDelegate.m */,
-				9CFD7B2C1BFE149100FC6FC6 /* Info.plist */,
 				9CFD7B2D1BFE149100FC6FC6 /* ViewController.h */,
 				9CFD7B2E1BFE149100FC6FC6 /* ViewController.mm */,
 				1837FFF41BC399510062D9F3 /* Supporting Files */,
@@ -193,20 +187,10 @@
 			isa = PBXGroup;
 			children = (
 				9CF1E1CA1C343BC300E229C3 /* common.h */,
-				9CF1E1CB1C343BC300E229C3 /* cortex */,
 				9CF1E1CE1C343BC300E229C3 /* IPexeso.hpp */,
 				9CF1E1CF1C343BC300E229C3 /* pexesial.hpp */,
 			);
 			path = pexesoLib;
-			sourceTree = "<group>";
-		};
-		9CF1E1CB1C343BC300E229C3 /* cortex */ = {
-			isa = PBXGroup;
-			children = (
-				9CF1E1CC1C343BC300E229C3 /* cortical.hpp */,
-				9CF1E1CD1C343BC300E229C3 /* ICortex.hpp */,
-			);
-			path = cortex;
 			sourceTree = "<group>";
 		};
 		AC886EFE9089931CB6592A2B /* Pods */ = {
@@ -362,7 +346,6 @@
 				9C6A1C5C1C29605300FC931E /* Snapshot.m in Sources */,
 				9CFD7B311BFE149100FC6FC6 /* ViewController.mm in Sources */,
 				9C31C4971C2C07B8006D79AC /* PoiVote.m in Sources */,
-				9C6853661BF1EB6900078257 /* UNA.m in Sources */,
 				9CD6B2AA1BF344D00022B3E1 /* RecoEvent.m in Sources */,
 				183F83AD1BCB9D2400704E03 /* JSONObject.m in Sources */,
 				9CC082531BFE14350000D950 /* main.m in Sources */,
@@ -377,6 +360,7 @@
 			isa = PBXVariantGroup;
 			children = (
 				6FD9E6981C6B917300ACD624 /* Base */,
+				6FE70A801C75130400A18133 /* en */,
 			);
 			name = ApiKey.strings;
 			sourceTree = "<group>";
@@ -498,7 +482,7 @@
 				);
 				GCC_INPUT_FILETYPE = automatic;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = NDEBUG;
-				INFOPLIST_FILE = "$(SRCROOT)/app/Info.plist";
+				INFOPLIST_FILE = app/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.1;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
@@ -532,7 +516,7 @@
 				);
 				GCC_INPUT_FILETYPE = automatic;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = NDEBUG;
-				INFOPLIST_FILE = "$(SRCROOT)/app/Info.plist";
+				INFOPLIST_FILE = app/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.1;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (

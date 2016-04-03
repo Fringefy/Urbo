@@ -6,7 +6,6 @@ import android.content.res.TypedArray;
 import android.hardware.Camera;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
@@ -32,19 +31,16 @@ public class CameraView extends SurfaceView
 
 // Members
 
-	private HandlerThread htCam;
 	private Handler hCam;
-	private boolean bCamInitialized;
+	private volatile boolean bCamInitialized;
 	private Camera camera;
 
 	private boolean bStartImmediately;
 	private int iCamId;
 	private int iFrameW, iFrameH;
 	private int iRotation;
-	private boolean bLive;
 
 	private RotationSensorListener rotationSensorListener;
-
 
 // Construction
 
@@ -52,17 +48,17 @@ public class CameraView extends SurfaceView
 		super(context);
 		init(null, 0);
 	}
-	
+
 	public CameraView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		init(attrs, 0);
 	}
-	
+
 	public CameraView(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
 		init(attrs, defStyle);
 	}
-	
+
 	private void init(AttributeSet attrs, int defStyle) {
 		if (isInEditMode()) {
 			return;
@@ -87,7 +83,7 @@ public class CameraView extends SurfaceView
 		rotationSensorListener = new RotationSensorListener(getContext());
 
 		// initialize camera thread
-		htCam = new HandlerThread("CameraThread");
+		HandlerThread htCam = new HandlerThread("CameraThread");
 		htCam.start();
 		hCam = new Handler(htCam.getLooper());
 
@@ -106,50 +102,40 @@ public class CameraView extends SurfaceView
 
 // Public Methods
 
-	public boolean freeze() {
-		if (!bLive) {
-			Log.d(TAG, "bLive = false");
-			return false;
-		}
-
-		if (camera != null) {
-			Log.d(TAG, "camera not null");
-			camera.stopPreview();
-		}
-		Log.d(TAG, "Freeze()");
+	public void freeze() {
+		hCam.post(new Runnable() {
+			@Override
+			public void run() {
+				synchronized (CameraView.this) {
+					if (camera != null) {
+						Log.d(TAG, "camera not null");
+						camera.stopPreview();
+					}
+				}
+			}
+		});
 		rotationSensorListener.freeze();
 		Urbo.getInstance().stop();
-
-		bLive = false;
-		return true;
 	}
 
-	public boolean unFreeze() {
+	public void unFreezeSensors() {
+		rotationSensorListener.unFreeze();
+	}
+
+	public synchronized boolean unFreeze() {
 
 		if (camera == null) {
 			bStartImmediately = true;
 			return false;
 		}
 
-		if (bLive) {
-			Log.d(TAG, "bLive = true");
-			rotationSensorListener.unFreeze();
-			Urbo.getInstance().start();
-			return false;
-		}
-
 		camera.setPreviewCallbackWithBuffer(this);
 		camera.startPreview();
 
-		rotationSensorListener.unFreeze();
+		unFreezeSensors();
 		Urbo.getInstance().start();
 
-		bLive = true;
 		return true;
-	}
-
-	public boolean isLive() {
-		return bLive || (!bCamInitialized && bStartImmediately);
 	}
 
 // Event Handlers
@@ -200,11 +186,13 @@ public class CameraView extends SurfaceView
 			freeze();
 
 			if (camera != null) {
-				camera.release();
-				Log.i(TAG, "Camera(" + iCamId + ") released");
-				camera = null;
-				bCamInitialized = false;
+				synchronized (this) {
+					camera.release();
+					Log.i(TAG, "Camera(" + iCamId + ") released");
+					camera = null;
+				}
 			}
+			bCamInitialized = false;
 		}
 
 		@Override
@@ -215,7 +203,7 @@ public class CameraView extends SurfaceView
 
 // Private Methods
 
-	private void cameraSetup(int w, int h) {
+	synchronized private void cameraSetup(int w, int h) {
 		try {
 			Camera.Parameters params = camera.getParameters();
 

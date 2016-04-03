@@ -13,8 +13,7 @@ interface Odie {
 	OdieUpdate getPois(@Query("lat") double dLat, @Query("lng") double dLong,
                     @Query("accuracy") double dAccuracy,
                     @Query("country") String sCountryCode,
-                    @Query("deviceId") String sDeviceId,
-                    @Query("settings") boolean bGetSettings);
+                    @Query("deviceId") String sDeviceId);
 
 	class OdieUpdate {
 		public Poi[] pois;

@@ -50,9 +50,7 @@ public class MainActivity extends Activity implements Urbo.Listener {
 		setContentView(R.layout.main_activity);
 
 		cameraView = (CameraView) findViewById(R.id.camera_view);
-		if (cameraView.isLive()) {
-			getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		}
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 		debugListener = (DebugListener) findViewById(R.id.debug_view);
 

@@ -7,10 +7,10 @@
 
 @implementation JSONObject
 
-- (id)initWithJSON:(id)JSON {
+- (id)initWithJSON:(id)poiJson {
     self = [self init];
     if (self){
-        [self setValuesForKeysWithDictionary:JSON];
+        [self setValuesForKeysWithDictionary:poiJson];
     }
     return self;
 }
@@ -31,10 +31,8 @@
     for(i = 0; i < outCount; i++) {
         objc_property_t property = properties[i];
         const char *propName = property_getName(property);
-        if(propName) {
-            //const char *propType = getPropertyType(property);
+        if (propName) {
             NSString *propertyName = [NSString stringWithUTF8String:propName];
-            //NSString *propertyType = [NSString stringWithCString:propType];
             id propertyValue = [self valueForKey:propertyName];
             NSString *className = NSStringFromClass([propertyName class]);
             NSString *address = [NSString stringWithFormat:@"%p", propertyValue];

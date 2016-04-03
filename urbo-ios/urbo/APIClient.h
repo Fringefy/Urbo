@@ -10,15 +10,22 @@ typedef void (^FailureBlock)(NSURLSessionTask *task, NSError *error);
 
 + (instancetype)sharedClient;
 
--(void)getPOIs:(NSNumber *)lng
-           lat:(NSNumber *)lat
-      deviceId:(NSString *)deviceId
-      accuracy:(NSNumber *)accuracy
-       success:(SuccessBlock)success
-       failure:(FailureBlock)failure;
+-(void)getPois:(SuccessBlock)success
+	withLat:(NSNumber *)lat
+	andLong:(NSNumber *)lng
+	accuracy:(NSNumber *)accuracy;
 
--(void)sendPoisWithEvents:(NSDictionary *)poisWithEvents
-                  success:(SuccessBlock)success
-                  failure:(FailureBlock)failure;
+-(void)getPois:(SuccessBlock)success
+	withLat:(NSNumber *)lat
+	andLong:(NSNumber *)lng
+	accuracy:(NSNumber *)accuracy
+	failure:(FailureBlock)failure;
+
+-(void)sync:(SuccessBlock)success
+	withRecoEvents:(NSDictionary *)poisWithEvents;
+
+-(void)sync:(SuccessBlock)success
+	withRecoEvents:(NSDictionary *)poisWithEvents
+	failure:(FailureBlock)failure;
 
 @end

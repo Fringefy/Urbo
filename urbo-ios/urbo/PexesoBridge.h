@@ -23,8 +23,8 @@
 - (void) pushLocation:(CLLocation*) location;
 - (void) pushHeading:(float) heading;
 - (void) poiCacheRequestCallback:(int) requestId
-                        location:(CLLocation *) location
-                            pois:(NSArray*) poisList;
+						location:(CLLocation *) location
+							pois:(NSArray*) poisList;
 - (void) stopLiveFeed;
 - (void) tagSnapshot:(Snapshot *) snapshot poi:(POI *)poi;
 - (NSArray *) getPoiShortlist;
@@ -40,11 +40,11 @@
 typedef enum StateId StateId;
 
 typedef enum {
-    CODE_DBG = 0,
-    CODE_INFORMATION = 1,
-    CODE_WARNING = 2,
-    CODE_ERROR = 3,
-    CODE_MAX_SEVERITY = 4
+	CODE_DBG = 0,
+	CODE_INFORMATION = 1,
+	CODE_WARNING = 2,
+	CODE_ERROR = 3,
+	CODE_MAX_SEVERITY = 4
 } SeverityCode;
 
 @end

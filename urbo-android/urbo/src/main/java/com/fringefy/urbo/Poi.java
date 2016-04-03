@@ -40,24 +40,16 @@ public class Poi {
 	// TODO: maybe keep accuracy, too?
 
 	/** POI category (type) */
-	public enum Type {
-		Food(1),
-		Bars(2),
-		Travel(3),
-		Landmark(4);
+	public final static int UNKNOWN = 0;
+	public final static int Food = 1;
+	public final static int Bars = 2;
+	public final static int Travel = 3;
+	public final static int Landmark = 4;
+	public final static int Street = 9;
 
-		private int iType;
-
-		Type(int iType) {
-			this.iType = iType;
-		}
-		public int toInt() {
-			return iType;
-		}
-	}
-	private Type type;
-	public Type getType() { return type; }
-	public Poi setType(Type type) {
+	private int type;
+	public int getType() { return type; }
+	public Poi setType(int type) {
 		lockCheck();
 		this.type = type;
 		return this;
@@ -110,13 +102,18 @@ public class Poi {
 				data = sUna;
 			}
 		}
+		private static class Geo {
+			float[][] facade;
+		}
 
 // Fields
 
 		Una[] unas;
+		Geo geo;
 	}
 
 	Usig usig;
+	private float[][] facade;
 
 	/** Website */
 	private String website;

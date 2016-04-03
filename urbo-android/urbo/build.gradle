@@ -101,11 +101,10 @@ clean.dependsOn cleanNative
 model {
     android.ndk {
         moduleName = "pexeso_android"
-        toolchain = "gcc"
-        toolchainVersion = "4.9"
         cppFlags = ["-std=c++11", "-fno-rtti", "-fno-exceptions", "-Wno-write-strings"]
-        cppFlags += "-I" + file("../pexeso-android").absolutePath
-        cppFlags += "-I" + file("../../pexeso").absolutePath
+        cppFlags += "-I" + file("../pexeso-android").getAbsolutePath()
+        cppFlags += "-I" + file("../../pexeso").getAbsolutePath()
+        cppFlags += "-I" + file("../../pexeso/cortex").getAbsolutePath()
         cppFlags += "-I$OpenCV_native/jni/include".toString()
 
         stl = "gnustl_static"
@@ -114,7 +113,7 @@ model {
 
     android.sources {
         main.jni.source {
-            srcDirs = ["../../pexeso", "../pexeso-android"]
+            srcDirs = ["../../pexeso"]
         }
     }
 }

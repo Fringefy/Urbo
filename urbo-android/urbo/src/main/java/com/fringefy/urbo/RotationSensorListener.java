@@ -6,6 +6,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.SystemClock;
 import android.util.Log;
 
 import java.util.Arrays;
@@ -119,9 +120,6 @@ class RotationSensorListener implements SensorEventListener {
 
 		// afOrientation[0] is from -PI to PI with 0 to North
 		double heading = afOrientation[0] / Math.PI * 180;
-		if (heading < 0) {
-			heading += 360;
-		}
 
 		if (iOrientation == Configuration.ORIENTATION_LANDSCAPE) {
 			// afOrientation[2] == -pi/2 --> straight
@@ -140,6 +138,12 @@ class RotationSensorListener implements SensorEventListener {
 			}
 		}
 
+		if (sensorMagnetic == null) {
+			heading += SystemClock.uptimeMillis()/500;
+			while (heading > 180) {
+				heading -= 360;
+			}
+		}
 		Pexeso.pushHeading((float)heading);
 	}
 

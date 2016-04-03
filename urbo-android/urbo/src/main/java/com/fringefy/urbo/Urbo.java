@@ -85,7 +85,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	static private Urbo urbo = null;
 	final Params params;
 
-    final String sDeviceId;
+	final String sDeviceId;
 	private String sCountryCode; // TODO: it's not initialized today
 
 	private Odie odie;
@@ -133,6 +133,9 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 		odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
 		urbo = this;
+		if (context instanceof DebugListener) {
+			debugListener = (DebugListener) context;
+		}
 	}
 
 	/**
@@ -188,12 +191,20 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 		if (!googleApiClient.isConnected()) {
 			googleApiClient.connect();
+			Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
 		}
 		Pexeso.restartLiveFeed();	// TODO: [SY] should be called by camera
 	}
 
 	public void stop() {
-		locationApi.removeLocationUpdates(googleApiClient, this);
+		try {
+			if (googleApiClient.isConnected()) {
+				locationApi.removeLocationUpdates(googleApiClient, this);
+			}
+		}
+		catch (RuntimeException e) {
+			Log.e(TAG, "stop locationApi failed", e);
+		}
 		Pexeso.stopLiveFeed();
 	}
 
@@ -211,6 +222,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	 * @return List of POIs (points of interest) that are currently in cache
 	 */
 	public Poi[] getPoiShortlist() {
+		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
 		return Pexeso.getPoiShortlist();
 	}
 
@@ -236,6 +248,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	}
 
 	public void forceCacheRefresh() {
+		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
 		Pexeso.forceCacheRefresh();
 	}
 
@@ -309,7 +322,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 				try {
 					odieResponse = odie.getPois(location.getLatitude(),
 							location.getLongitude(), location.getAccuracy(),
-							sCountryCode, sDeviceId, false);
+							sCountryCode, sDeviceId);
 				}
 				catch (Throwable e) {
 					Log.e("Urbo", "GET /pois failed " + e);
@@ -342,6 +355,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	}
 
 	void onError(int severity, String sMsg) {
+		Log.println(severity, TAG, sMsg);
 		if (severity == Log.INFO && debugListener != null) {
 			String[] strings = sMsg.split("\t");
 			if (strings.length == 2) {
@@ -352,13 +366,13 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		if (severity == Log.ERROR && debugListener != null) {
 			debugListener.toast(sMsg);
 		}
-		Log.println(severity, TAG, sMsg);
 	}
 
 	public boolean connectLocationService() {
 		boolean gps_enabled = false;
 		try {
 			gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+			Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
 		}
 		catch (Exception ex){}
 
@@ -366,6 +380,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	}
 
 	public Location getCurrentLocation() {
+		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
 		return Pexeso.getCurrentLocation();
 	}
 

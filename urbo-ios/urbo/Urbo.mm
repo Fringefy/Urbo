@@ -5,8 +5,12 @@
 #import <AWSCore/AWSCore.h>
 #import <AWSS3/AWSS3.h>
 
-#define degrees(x) (180 * x / M_PI)
+#define RAD2DEG(d) (d * 180.0f / M_PI)
 #define awskey @"eu-west-1:1b7bb31e-db37-4d1a-99cf-615f36f531ea"
+
+// TODO: upload to HTTP without AWS client, get rid of huge library
+//serverAdress = "https://" + bucketName + ".s3-eu-west-1.amazonaws.com/" + folder +
+//"%s?Content-Type=image/jpg&Expires=1437757726&x-amz-acl=public-read";
 
 @implementation Urbo
 
@@ -24,7 +28,12 @@ static Urbo *sharedInstance = nil;
     sharedInstance.pexeso = [[PexesoBridge alloc] init];
     sharedInstance.delegate = delegate;
     sharedInstance.apiKey = apiKey;
-    sharedInstance.baseUrl = @"https://odie.fringefy.com/";
+    sharedInstance.sEndpoint = @"https://odie.fringefy.com/odie";
+    if ([[NSUserDefaults standardUserDefaults]
+         objectForKey:@"sEndpoint"] != nil) {
+        sharedInstance.sEndpoint = [[NSUserDefaults standardUserDefaults]
+                                    objectForKey:@"sEndpoint"];
+    }
     if ([[NSUserDefaults standardUserDefaults]
          objectForKey:@"uniqueIdentifier"] == nil) {
         NSString *deviceId = [[[UIDevice currentDevice] identifierForVendor]
@@ -75,7 +84,7 @@ static Urbo *sharedInstance = nil;
         [self.manager startDeviceMotionUpdatesToQueue:[NSOperationQueue mainQueue]
                                           withHandler:^(CMDeviceMotion * _Nullable motion,
                                                         NSError * _Nullable error) {
-            float degrees = degrees(motion.attitude.pitch);
+            float degrees = RAD2DEG(motion.attitude.pitch);
             [self.pexeso pushPitch:(degrees - 90)];
         }];
         
@@ -146,18 +155,16 @@ static Urbo *sharedInstance = nil;
     else {
         poiArray = [[NSArray alloc] init];
     }
-    NSDictionary *resultDict = [NSDictionary
-        dictionaryWithObjectsAndKeys: poiArray,
+    NSDictionary *resultDict = [NSDictionary dictionaryWithObjectsAndKeys: poiArray,
         @"pois",
         [NSArray arrayWithObject: snapshot.recoEvent.dictionaryRepresentation],
         @"recognitionEvents",
         nil];
-    [[APIClient sharedClient] sendPoisWithEvents:resultDict
-        success:^(NSURLSessionTask *task, id responseObject) {
+        [[APIClient sharedClient] sync:^(NSURLSessionTask *task, id responseObject) {
             [self.pexeso poiCacheUpdateCallback:responseObject];
         }
-        failure:^(NSURLSessionTask *task, NSError *error) {
-        }
+        withRecoEvents: resultDict
+        failure:^(NSURLSessionTask *task, NSError *error) {}
     ];
 }
 
@@ -170,6 +177,9 @@ static Urbo *sharedInstance = nil;
     NSData *imageData = [NSData dataWithData:UIImageJPEGRepresentation
                          (snapshot.snapshotImage, 0.9)];
     [imageData writeToFile:filePath atomically:YES];
+//    NSString *serverAdress = @"https://" + self.s3Bucket + @".s3-eu-west-1.amazonaws.com/" + self.s3Folder +
+//    @"%s?Content-Type=image/jpg&Expires=1437757726&x-amz-acl=public-read";
+
     AWSS3TransferManager *transferManager = [AWSS3TransferManager
                                              defaultS3TransferManager];
     AWSS3TransferManagerUploadRequest *request = [AWSS3TransferManagerUploadRequest new];
@@ -185,28 +195,20 @@ static Urbo *sharedInstance = nil;
 
 -(void)sendCacheRequest:(int)requestId withLocation:(CLLocation *)location
 {
-    [[APIClient sharedClient] getPOIs:@(location.coordinate.longitude)
-                                  lat:@(location.coordinate.latitude)
-                             deviceId:self.deviceId
-                             accuracy:@(location.horizontalAccuracy)
-                              success:^(NSURLSessionTask *task,id responseObject){
-                                  self.s3Bucket = responseObject[@"s3Bucket"];
-                                  self.s3Folder = responseObject[@"s3Folder"];
-                                  self.sharepageUrl = responseObject[@"sharepageUrl"];
-                                  self.tabpageUrl = responseObject[@"tabpageUrl"];
-                                  self.mappageUrl = responseObject[@"mappageUrl"];
-                                  self.downsizedUrl = responseObject[@"downsizedUrl"];
-                                  NSMutableArray* pois = [[NSMutableArray alloc] init];
-                                  for (NSDictionary *dict in responseObject[@"pois"]) {
-                                      POI *poi = [POI poiWithJSON:dict];
-                                      [pois addObject:poi];
-                                  }
-                                  [self.pexeso poiCacheRequestCallback:requestId
-                                                              location:location
-                                                                  pois:pois];
-                              }
-                              failure:^(NSURLSessionTask *task,NSError *error) {
-                              }];
+    [[APIClient sharedClient] getPois:^(NSURLSessionTask *task,id responseObject){
+        self.s3Bucket = responseObject[@"s3Bucket"];
+        self.s3Folder = responseObject[@"s3Folder"];
+        self.downsizedUrl = responseObject[@"downsizedUrl"];
+        NSMutableArray* pois = [[NSMutableArray alloc] init];
+        for (NSDictionary *dict in responseObject[@"pois"]) {
+            POI *poi = [POI poiWithJSON:dict];
+            [pois addObject:poi];
+        }
+        [self.pexeso poiCacheRequestCallback:requestId location:location pois:pois];
+    }
+    withLat:@(location.coordinate.latitude)
+    andLong:@(location.coordinate.longitude)
+    accuracy:@(location.horizontalAccuracy)];
 }
 
 @end

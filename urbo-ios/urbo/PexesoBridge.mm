@@ -1,6 +1,5 @@
 #import "PexesoBridge.h"
 #import "POI.h"
-#import "UNA.h"
 #import "PoiVote.h"
 #import "Snapshot.h"
 #import "Urbo.h"
@@ -28,31 +27,15 @@ public:
     PlatformImage compress(ImgBuffer imgBuf);
 };
 
-class ListUnaIterator : public IUnaIterator
-{
-    NSArray *unasArray;
-    
-public:
-    ListUnaIterator(NSArray *unas) :
-    IUnaIterator((int)unas.count),
-    bCalled(false),
-    unasArray(unas)
-    {}
-    
-    void iterate(const Function&);
-    bool bCalled;
-};
-
 class ListPoiIterator : public IPoiIterator
 {
     NSArray *poisArray;
     
 public:
     ListPoiIterator(NSArray *pois) :
-    IPoiIterator((int)pois.count),
-    poisArray(pois)
-    {}
-    void iterate(const Function&);
+        IPoiIterator((int)pois.count),
+        poisArray(pois) {}
+    void iterate(const IPoiIterator::Function&) const;
 };
 
 BufferManager bufferManager;
@@ -87,12 +70,11 @@ Snapshot* getSnapshot(const IPexeso::Snapshot& snapshot) {
     oSnapshot.poi = (__bridge POI*)snapshot.machineSelectedPoi.pUser;
     oSnapshot.snapshotImage = (UIImage*)CFBridgingRelease(snapshot.platformImage);
 
-    vector<IVote> votes = snapshot.vVotes;
-    NSMutableArray *arrayVotes = [[NSMutableArray alloc] init];
-    for (int i=0; i<votes.size();i++) {
+    NSMutableArray *arrayVotes = [NSMutableArray arrayWithCapacity:snapshot.vVotes.size()];
+    for (IVote iVote: snapshot.vVotes) {
         PoiVote *vote = [[PoiVote alloc] init];
-        vote.poi = (__bridge POI*)votes[i].poi->pUser;
-        vote.vote = votes[i].fScore;
+        vote.poi = (__bridge POI*)iVote.poi->pUser;
+        vote.vote = iVote.fScore;
         [arrayVotes addObject:vote];
     }
     oSnapshot.votes = arrayVotes;
@@ -151,7 +133,7 @@ Snapshot* getSnapshot(const IPexeso::Snapshot& snapshot) {
 {
     bufferManager.w = width;
     bufferManager.h = height;
-    bufferManager.rotation = 0;
+    bufferManager.rotation = ROTATION_0;
     px->initLiveFeed(bufferManager);
 }
 
@@ -259,7 +241,12 @@ Snapshot* getSnapshot(const IPexeso::Snapshot& snapshot) {
     if (!oPoi.imgFileName) {
         oPoi.imgFileName = oSnapshot.recoEvent.imgFileName;
     }
-    oPoi.loc = locationCtoOarray(tagResult.pPoi->loc);
+    if (!oPoi.loc) {
+        oPoi.loc = locationCtoOarray(tagResult.pPoi->loc);
+    }
+    if (!oPoi.timestamp) {
+        oPoi.timestamp = oSnapshot.recoEvent.clientTimestamp;
+    }
     oSnapshot.poi = (__bridge POI*)tagResult.pPoi->pUser;
     
     [urbo sendRecoEvent:oSnapshot];
@@ -284,17 +271,29 @@ IPexeso::Snapshot createSnapshot(Snapshot *oSnapshot)
 
 IPoi createPoi(POI *oPoi)
 {
-    Location loc = locationOarraytoC(oPoi.loc);
-
-    const char* pcPoiName = [oPoi.name UTF8String];
-    const char* pcPoiId = oPoi.poiId ? [oPoi.poiId UTF8String] : "";
     IPoi::ClientId clientId = oPoi.clientId ? [oPoi.clientId intValue] : IPoi::INVALID_ID;
+    IPoi poi(clientId);
 
-    IPoi poi(pcPoiName, loc, pcPoiId, clientId);
+    poi.name = [oPoi.name UTF8String];
+    poi.id = oPoi.poiId ? [oPoi.poiId UTF8String] : "";
+    poi.loc = locationOarraytoC(oPoi.loc);
+    poi.type = [oPoi.type intValue];
+
+    poi.usig.geo.locCenter = poi.loc;
+    poi.usig.status = UsigBase::NON_INDEXABLE;
+
+    for (size_t i = 0; i < oPoi.facade.count; i++) {
+        poi.usig.geo.facade.emplace_back(
+            Location([oPoi.facade[i][1] floatValue], [oPoi.facade[i][0] floatValue]));
+    }
+
+    for (int i=0; i<oPoi.unas.count; i++) {
+        poi.usig.status = UsigBase::OK;
+        poi.usig.vUnas.emplace_back([oPoi.unas[i][@"data"] UTF8String]);
+    }
 
     oPoi.clientId = [NSString stringWithFormat:@"%u", poi.clientId];
     poi.pUser = (__bridge_retained void *)oPoi; // PoiCache is now the owner of the POI object
-    oPoi = nil;
 
     return poi;
 }
@@ -312,13 +311,14 @@ IPoi createPoi(POI *oPoi)
 -(NSArray *) getPoiShortlist
 {
     PoiShortlist shortlist = px->getPoiShortlist(true);
-    NSMutableArray *oPois = [[NSMutableArray alloc] init];
-    for (int i = 0; i < shortlist.size(); i++) {
-        IVote vote = shortlist[i];
-        POI *poi = (__bridge POI *)vote.poi->pUser;
-        [oPois addObject:poi];
+    NSMutableArray *arrayVotes = [NSMutableArray arrayWithCapacity:shortlist.size()];
+    for (IVote iVote: shortlist) {
+        PoiVote *vote = [[PoiVote alloc] init];
+        vote.poi = (__bridge POI*)iVote.poi->pUser;
+        vote.vote = iVote.fScore;
+        [arrayVotes addObject:vote];
     }
-    return oPois;
+    return arrayVotes;
 }
 
 -(CLLocation *) getCurrentLocation
@@ -438,30 +438,13 @@ CLLocation* locationCtoO(Location location)
     return loc;
 }
 
-void ListUnaIterator::iterate(const ListUnaIterator::Function& fn)
-{
-    bCalled = true;
-    for (int i = 0; i < size(); i++) {
-        UNA *oUna = unasArray[i];
-        if (oUna) {
-            NSString *sUna = oUna.data;
-            if (sUna) {
-                const char *pcUna = [sUna UTF8String];
-                fn(pcUna);
-            }
-        }
-    }
-}
-
-void ListPoiIterator::iterate(const ListPoiIterator::Function& fn)
+void ListPoiIterator::iterate(const ListPoiIterator::Function& fn) const
 {
     for (size_t i = 0; i < size(); i++) {
         POI *poi = poisArray[i];
+        IPoi iPoi = createPoi(poi);
         if (poi) {
-            NSArray *usig = poi.usig;
-            IPoi iPoi = createPoi(poi);
-            ListUnaIterator unaIterator(usig);
-            fn(iPoi, unaIterator);
+            fn(iPoi);
         }
     }
 }
