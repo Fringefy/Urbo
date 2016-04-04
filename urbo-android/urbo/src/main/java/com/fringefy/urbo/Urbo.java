@@ -2,6 +2,7 @@ package com.fringefy.urbo;
 
 import android.content.Context;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -10,19 +11,13 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.FusedLocationProviderApi;
-import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationServices;
-
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class Urbo implements LocationListener, GoogleApiClient.ConnectionCallbacks {
+public final class Urbo implements LocationListener {
 	private static final String TAG = "Urbo";
 
 // Inner Types
@@ -30,9 +25,8 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	public static class Params {
 		// location update frequency (milliseconds), see location services docs
 		private static final int UPDATE_INTERVAL = 5000;
-
-		// fastest update frequency (milliseconds), see location services docs
-		private static final int FASTEST_INTERVAL = 1000;
+		// ignore location updates that are 5 times less accurate than current location
+		private static final float IGNORE_INACCURATE_UPDATES = 5;
 
 		public String sEndpoint = "https://odie.fringefy.com/odie";
 		public String sApiKey;
@@ -93,11 +87,9 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	private final ExecutorService xsIo; // TODO: shift executor to C++
 
 	private final LocationManager locationManager;
-	private final GoogleApiClient googleApiClient;
-	private final FusedLocationProviderApi locationApi;
-	private final LocationRequest locationRequest;
 	private DebugListener debugListener;
 
+	private float bestAccuracy = Float.MAX_VALUE;
 
 // Construction
 
@@ -105,37 +97,20 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 		params = initParams;
 		sDeviceId = getDeviceId();
-
-		locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-
-		// create the LocationRequest object
-		locationRequest = LocationRequest.create();
-		// use high accuracy
-		locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-		// set the update intervals
-		locationRequest.setInterval(Params.UPDATE_INTERVAL);
-		locationRequest.setFastestInterval(Params.FASTEST_INTERVAL);
-
-		locationApi = LocationServices.FusedLocationApi;
-
-		googleApiClient = new GoogleApiClient.Builder(context)
-				.addApi(LocationServices.API)
-				.addConnectionCallbacks(this)
-				.build();
-
-		// connect to the Google API
-		googleApiClient.connect();
-
-		odieBlob = new OdieBlob();
 		xsIo = Executors.newFixedThreadPool(Params.MAX_ODIE_CONNECTIONS);
 
-		Pexeso.init(null, this);
+		odieBlob = new OdieBlob();
 
 		odie = OdieFactory.getInstance(params.sEndpoint, params.sApiKey);
 		urbo = this;
 		if (context instanceof DebugListener) {
 			debugListener = (DebugListener) context;
 		}
+
+		Pexeso.init(null, this);
+
+		locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+		Pexeso.pushLocation(lastKnownLocation());
 	}
 
 	/**
@@ -189,22 +164,20 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 
 	public void start() {
 
-		if (!googleApiClient.isConnected()) {
-			googleApiClient.connect();
-			Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
+		for (String provider: locationManager.getAllProviders()) {
+			locationManager.requestLocationUpdates(provider, Params.UPDATE_INTERVAL, 0, this);
 		}
 		Pexeso.restartLiveFeed();	// TODO: [SY] should be called by camera
 	}
 
 	public void stop() {
 		try {
-			if (googleApiClient.isConnected()) {
-				locationApi.removeLocationUpdates(googleApiClient, this);
-			}
+			locationManager.removeUpdates(this);
 		}
 		catch (RuntimeException e) {
 			Log.e(TAG, "stop locationApi failed", e);
 		}
+
 		Pexeso.stopLiveFeed();
 	}
 
@@ -218,11 +191,36 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		return this;
 	}
 
+	private Location lastKnownLocation() {
+		long bestTime = Long.MAX_VALUE;
+		long minTime = Long.MAX_VALUE;
+		Location bestResult = null;
+
+		for (String provider: locationManager.getAllProviders()) {
+			Location location = locationManager.getLastKnownLocation(provider);
+			if (location != null) {
+				float accuracy = location.getAccuracy();
+				long time = location.getTime();
+
+				if (time < minTime && accuracy < bestAccuracy) {
+					bestResult = location;
+					bestAccuracy = accuracy;
+					bestTime = time;
+				}
+				else if (time < minTime &&
+						bestAccuracy == Float.MAX_VALUE && time > bestTime) {
+					bestResult = location;
+					bestTime = time;
+				}
+			}
+		}
+		return bestResult;
+	}
 	/**
 	 * @return List of POIs (points of interest) that are currently in cache
 	 */
 	public Poi[] getPoiShortlist() {
-		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
+		Pexeso.pushLocation(lastKnownLocation());
 		return Pexeso.getPoiShortlist();
 	}
 
@@ -248,32 +246,35 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	}
 
 	public void forceCacheRefresh() {
-		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
+		Pexeso.pushLocation(lastKnownLocation());
 		Pexeso.forceCacheRefresh();
 	}
 
 // Events
 
 	@Override
-	public void onConnected(Bundle dataBundle) {
-		Log.d(TAG, "Connected to Google location services");
-
-		// push the last known location
-		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
-
-		// start periodic updates according to the locationRequest
-		locationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
-	}
-
-	@Override
-	public void onConnectionSuspended(int arg0) {
-		Log.w(TAG, "Disconnected from Google location services");
-		googleApiClient.connect();
-	}
-
-	@Override
 	public void onLocationChanged(Location location) {
+
+		if (location.getAccuracy() < bestAccuracy) {
+			bestAccuracy = location.getAccuracy();
+		}
+		if (location.getAccuracy() > bestAccuracy * params.IGNORE_INACCURATE_UPDATES) {
+			return; // ignore non-accurate location updates
+		}
 		Pexeso.pushLocation(location);
+	}
+
+	@Override
+	public void onStatusChanged(String provider, int status, Bundle extras) {
+
+	}
+
+	@Override
+	public void onProviderEnabled(String provider) {
+	}
+
+	@Override
+	public void onProviderDisabled(String provider) {
 	}
 
 	// TODO: take care of batch requests and retries
@@ -372,7 +373,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 		boolean gps_enabled = false;
 		try {
 			gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-			Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
+			Pexeso.pushLocation(lastKnownLocation());
 		}
 		catch (Exception ex){}
 
@@ -380,7 +381,7 @@ public final class Urbo implements LocationListener, GoogleApiClient.ConnectionC
 	}
 
 	public Location getCurrentLocation() {
-		Pexeso.pushLocation(locationApi.getLastLocation(googleApiClient));
+		Pexeso.pushLocation(lastKnownLocation());
 		return Pexeso.getCurrentLocation();
 	}
 
